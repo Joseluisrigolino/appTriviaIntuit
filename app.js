@@ -7,11 +7,12 @@ const STORAGE_KEY = "intuit-trivia-state-v2";
 const API_URL = "/api/state";
 const REFRESH_INTERVAL = 4000;
 
-const defaultState = () => ({ version: 2, activeGameId: null, games: [], updatedAt: null });
+const defaultState = () => ({ version: 3, activeGameId: null, games: [], categories: [], updatedAt: null });
 let state = defaultState();
 let storageMode = "local";
 let toastTimer;
 let tourIndex = 0;
+let editingCategoryId = null;
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -24,16 +25,31 @@ const isAdmin = () => sessionStorage.getItem("intuit-trivia-admin") === ADMIN_PA
 
 function normalizeState(raw) {
   if (!raw || !Array.isArray(raw.games)) return defaultState();
+  let games = raw.games.map(game => ({
+    ...game,
+    status: game.status || (game.winner ? "completed" : "published"),
+    category: typeof game.category === "string" ? game.category.trim() : "",
+    bonusPercent: Math.max(0, Math.min(200, Number(game.bonusPercent) || 0)),
+    clues: Array.isArray(game.clues) ? game.clues.map(clue => typeof clue === "string" ? { text: clue, revealed: false } : { text: clue.text || "", revealed: Boolean(clue.revealed) }) : [],
+    winner: PARTICIPANTS.includes(game.winner) ? game.winner : null
+  }));
+  const hasCategoryCatalog = Array.isArray(raw.categories);
+  const categories = hasCategoryCatalog ? raw.categories.filter(category => category?.name).map((category, index) => ({
+    id: String(category.id || `category-${index}`),
+    name: String(category.name).trim(),
+    bonusPercent: Math.max(0, Math.min(200, Number(category.bonusPercent) || 0))
+  })) : [];
+  if (!hasCategoryCatalog) games.forEach((game, index) => {
+    if (!game.category || categories.some(category => category.name.toLowerCase() === game.category.toLowerCase())) return;
+    categories.push({ id: `legacy-${index}-${game.category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, name: game.category, bonusPercent: categoryBonus(game) });
+  });
+  games = games.map(game => ({ ...game, categoryId: game.categoryId || categories.find(category => category.name.toLowerCase() === game.category?.toLowerCase())?.id || "" }));
   return {
-    version: 2,
+    version: 3,
     activeGameId: raw.activeGameId || null,
     updatedAt: raw.updatedAt || null,
-    games: raw.games.map(game => ({
-      ...game,
-      status: game.status || (game.winner ? "completed" : "published"),
-      clues: Array.isArray(game.clues) ? game.clues.map(clue => typeof clue === "string" ? { text: clue, revealed: false } : { text: clue.text || "", revealed: Boolean(clue.revealed) }) : [],
-      winner: PARTICIPANTS.includes(game.winner) ? game.winner : null
-    }))
+    games,
+    categories
   };
 }
 
@@ -136,11 +152,11 @@ function renderGame() {
   const points = calculatePoints(game);
   const revealed = game?.clues.filter(clue => clue.revealed) || [];
   const completed = game?.status === "completed";
-  const availablePoints = completed ? game.pointsAwarded : points;
-  $("#currentPoints").textContent = completed ? game.pointsAwarded : points;
+  const availablePoints = game ? (completed ? game.pointsAwarded : points) : "?";
+  $("#currentPoints").textContent = availablePoints;
   $("#heroPoints").textContent = availablePoints;
-  $("#meterPoints").textContent = `${availablePoints} puntos disponibles`;
-  $("#pointsMeterFill").style.width = `${availablePoints / maxPoints(game) * 100}%`;
+  $("#meterPoints").textContent = game ? `${availablePoints} puntos disponibles` : "La categoría define el puntaje";
+  $("#pointsMeterFill").style.width = game ? `${availablePoints / maxPoints(game) * 100}%` : "0%";
   $("#questionNumber").textContent = game ? String(state.games.findIndex(item => item.id === game.id) + 1).padStart(2, "0") : "—";
   $("#questionCategory").textContent = game?.category ? `${game.category.toUpperCase()}${categoryBonus(game) ? ` · +${categoryBonus(game)}%` : ""}` : "CATEGORÍA LIBRE";
   $("#gameDateTitle").textContent = game ? formatDate(game.date) : "Preparando la próxima pregunta…";
@@ -189,16 +205,15 @@ function flowStep(game) {
 function renderAdmin() {
   const game = activeGame();
   const locked = game?.status === "published" || game?.status === "completed";
+  renderCategoryOptions();
   $("#gameDate").value = game?.date || today();
   $("#adminQuestion").value = game?.question || "";
   $("#adminCaption").value = game?.caption || "";
-  $("#adminCategory").value = game?.category || "";
-  $("#categoryBonus").value = categoryBonus(game);
+  $("#adminCategory").value = game?.categoryId || state.categories.find(category => category.name.toLowerCase() === game?.category?.toLowerCase())?.id || "";
   $("#gameDate").disabled = locked;
   $("#adminQuestion").disabled = locked;
   $("#adminCaption").disabled = locked;
   $("#adminCategory").disabled = locked;
-  $("#categoryBonus").disabled = locked;
   $("#saveQuestion").disabled = locked;
   $("#saveQuestion").textContent = locked ? "Pregunta ya publicada" : "Guardar pregunta y continuar";
   $("#adminPoints").textContent = calculatePoints(game);
@@ -212,7 +227,7 @@ function renderAdmin() {
   $("#publishGame").disabled = game?.status !== "ready" || !game.clues.length;
   renderAdminClues(game?.clues || [], locked);
   renderLivePanel(game);
-  renderCategoryOptions();
+  renderCategoryLibrary();
   updateCategoryHelp();
 
   const allowed = {
@@ -220,6 +235,7 @@ function renderAdmin() {
     clues: Boolean(game),
     live: game?.status === "published" || game?.status === "completed",
     winner: game?.status === "published" || game?.status === "completed",
+    categories: true,
     data: true
   };
   $$(".admin-tabs button").forEach(button => { button.disabled = !allowed[button.dataset.tab]; });
@@ -276,15 +292,55 @@ function renderLivePanel(game) {
 }
 
 function renderCategoryOptions() {
-  const categories = new Map();
-  state.games.forEach(game => { if (game.category) categories.set(game.category.trim().toLowerCase(), { name: game.category.trim(), bonus: categoryBonus(game) }); });
-  $("#categoryOptions").innerHTML = [...categories.values()].map(category => `<option value="${escapeHtml(category.name)}">+${category.bonus}%</option>`).join("");
+  $("#adminCategory").innerHTML = `<option value="">Elegí una categoría</option>${state.categories.map(category => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)} · +${category.bonusPercent}%</option>`).join("")}`;
 }
 
 function updateCategoryHelp() {
-  const bonus = Math.max(0, Math.min(200, Number($("#categoryBonus").value) || 0));
+  const category = state.categories.find(item => item.id === $("#adminCategory").value);
+  const bonus = category?.bonusPercent || 0;
   const initial = Math.round(20 * (1 + bonus / 100));
-  $("#categoryHelp").textContent = bonus ? `Esta categoría agrega ${bonus}%: la pregunta comenzará valiendo ${initial} puntos.` : "Sin extra: la pregunta comenzará valiendo 20 puntos.";
+  $("#categoryHelp").textContent = category ? `${category.name} agrega ${bonus}%: esta pregunta comenzará valiendo ${initial} puntos.` : "Cargá las categorías una sola vez y después elegilas desde acá.";
+}
+
+function updateNewCategoryHelp() {
+  const bonus = Math.max(0, Math.min(200, Number($("#newCategoryBonus").value) || 0));
+  $("#newCategoryHelp").textContent = `Con ${bonus}%, las preguntas de esta categoría comienzan en ${Math.round(20 * (1 + bonus / 100))} puntos.`;
+}
+
+function renderCategoryLibrary() {
+  $("#categoryList").innerHTML = state.categories.map(category => `
+    <div class="category-row" data-category-id="${escapeHtml(category.id)}">
+      <span>✦</span><div><b>${escapeHtml(category.name)}</b><small>Comienza en ${Math.round(20 * (1 + category.bonusPercent / 100))} pts · +${category.bonusPercent}%</small></div>
+      <button class="edit-category" type="button" aria-label="Editar ${escapeHtml(category.name)}">✎</button>
+      <button class="delete-category" type="button" aria-label="Eliminar ${escapeHtml(category.name)}">×</button>
+    </div>`).join("");
+  $$(".edit-category").forEach(button => button.addEventListener("click", event => {
+    const category = state.categories.find(item => item.id === event.currentTarget.closest(".category-row").dataset.categoryId);
+    if (!category) return;
+    editingCategoryId = category.id;
+    $("#categoryName").value = category.name;
+    $("#newCategoryBonus").value = category.bonusPercent;
+    $("#saveCategory").textContent = "Actualizar categoría";
+    updateNewCategoryHelp();
+    $("#categoryName").focus();
+  }));
+  $$(".delete-category").forEach(button => button.addEventListener("click", async event => {
+    const id = event.currentTarget.closest(".category-row").dataset.categoryId;
+    const category = state.categories.find(item => item.id === id);
+    if (!category || !confirm(`¿Eliminar la categoría ${category.name}? Las partidas anteriores conservarán sus puntos.`)) return;
+    state.categories = state.categories.filter(item => item.id !== id);
+    if (editingCategoryId === id) resetCategoryForm();
+    await persist("Categoría eliminada");
+    setAdminTab("categories");
+  }));
+}
+
+function resetCategoryForm() {
+  editingCategoryId = null;
+  $("#categoryName").value = "";
+  $("#newCategoryBonus").value = "0";
+  $("#saveCategory").textContent = "Guardar categoría";
+  updateNewCategoryHelp();
 }
 
 function renderStorageStatus() {
@@ -316,9 +372,10 @@ function openLogin() { $("#loginModal").classList.add("open"); $("#loginModal").
 function closeLogin() { $("#loginModal").classList.remove("open"); $("#loginModal").setAttribute("aria-hidden", "true"); $("#loginError").textContent = ""; }
 
 const TOUR_STEPS = [
+  { tab: "categories", target: "#categoryManager", title: "Primero: creá tus categorías", text: "Este paso se hace una sola vez. Guardá cada categoría con su porcentaje extra; después aparecerá lista para seleccionar en todas las preguntas." },
   { tab: "question", target: "#hostProgress", title: "Tu trivia, paso a paso", text: "Este recorrido marca en qué etapa estás: pregunta, pistas, juego en vivo y resultado. Podés volver a cualquier paso habilitado." },
-  { tab: "question", target: "#saveQuestion", title: "1. Guardá un borrador privado", text: "Escribí la pregunta y guardala. El equipo todavía no verá nada; recién entonces se habilita la carga de pistas." },
-  { tab: "question", target: "#categoryConfig", title: "2. Definí la dificultad", text: "Asigná una categoría y su porcentaje extra. Un 25% hace que la pregunta empiece en 25 puntos; el bonus también baja proporcionalmente con las pistas." },
+  { tab: "question", target: "#categoryConfig", title: "1. Elegí desde tu biblioteca", text: "Seleccioná una categoría ya cargada. Su extra se aplica automáticamente: acá no tenés que volver a escribir ningún porcentaje." },
+  { tab: "question", target: "#saveQuestion", title: "2. Guardá un borrador privado", text: "Escribí la pregunta y guardala. El equipo todavía no verá nada; recién entonces se habilita la carga de pistas." },
   { tab: "clues", target: ".publish-box", title: "3. Ordená y publicá", text: "Cargá las pistas de la más difícil a la más fácil. Cuando esté todo listo, este botón publica únicamente la pregunta." },
   { tab: "live", target: "#nextClueCard", title: "4. Leé las pistas en la daily", text: "Mostrá la siguiente pista sólo en tu panel y leela en voz alta. Los participantes verán el contador, nunca el texto, para que nadie tenga ventaja." },
   { tab: "winner", target: "#awardWinner", title: "5. Cerrá con el ganador", text: "Elegí quién acertó. Calculamos pistas y bonus de categoría, y actualizamos automáticamente el ranking de todo el equipo." }
@@ -392,15 +449,16 @@ window.addEventListener("resize", () => { if ($("#tourLayer").classList.contains
 $("#saveQuestion").addEventListener("click", async () => {
   const question = $("#adminQuestion").value.trim();
   const date = $("#gameDate").value;
-  const category = $("#adminCategory").value.trim();
-  const bonusPercent = Math.max(0, Math.min(200, Number($("#categoryBonus").value) || 0));
+  const categoryId = $("#adminCategory").value;
+  const selectedCategory = state.categories.find(category => category.id === categoryId);
   if (!question || !date) return showToast("Completá la fecha y la pregunta");
+  if (!selectedCategory) return showToast("Elegí una categoría de la biblioteca");
   let game = activeGame();
   if (!game || game.status === "completed") {
-    game = { id: `${date}-${Date.now()}`, date, question, caption: $("#adminCaption").value.trim(), category, bonusPercent, clues: [], status: "draft", winner: null, pointsAwarded: null, completedAt: null };
+    game = { id: `${date}-${Date.now()}`, date, question, caption: $("#adminCaption").value.trim(), categoryId, category: selectedCategory.name, bonusPercent: selectedCategory.bonusPercent, clues: [], status: "draft", winner: null, pointsAwarded: null, completedAt: null };
     state.games.push(game); state.activeGameId = game.id;
   } else if (game.status === "draft" || game.status === "ready") {
-    game.date = date; game.question = question; game.caption = $("#adminCaption").value.trim(); game.category = category; game.bonusPercent = bonusPercent;
+    game.date = date; game.question = question; game.caption = $("#adminCaption").value.trim(); game.categoryId = categoryId; game.category = selectedCategory.name; game.bonusPercent = selectedCategory.bonusPercent;
     game.status = game.clues.length ? "ready" : "draft";
   } else return showToast("La pregunta ya fue publicada");
   await persist("Borrador privado guardado");
@@ -413,12 +471,27 @@ $("#addClue").addEventListener("click", () => {
   $$(".admin-clue-row input").at(-1)?.focus();
 });
 
-$("#categoryBonus").addEventListener("input", updateCategoryHelp);
-$("#adminCategory").addEventListener("change", () => {
-  const name = $("#adminCategory").value.trim().toLowerCase();
-  const known = [...state.games].reverse().find(game => game.category?.trim().toLowerCase() === name);
-  if (known) $("#categoryBonus").value = categoryBonus(known);
-  updateCategoryHelp();
+$("#adminCategory").addEventListener("change", updateCategoryHelp);
+$("#openCategories").addEventListener("click", () => setAdminTab("categories"));
+$("#newCategoryBonus").addEventListener("input", updateNewCategoryHelp);
+$("#saveCategory").addEventListener("click", async () => {
+  const name = $("#categoryName").value.trim();
+  const bonusPercent = Math.max(0, Math.min(200, Number($("#newCategoryBonus").value) || 0));
+  const wasEditing = Boolean(editingCategoryId);
+  if (!name) return showToast("Escribí el nombre de la categoría");
+  const duplicate = state.categories.find(category => category.name.toLowerCase() === name.toLowerCase() && category.id !== editingCategoryId);
+  if (duplicate) return showToast("Esa categoría ya está guardada");
+  if (editingCategoryId) {
+    const category = state.categories.find(item => item.id === editingCategoryId);
+    if (!category) return;
+    category.name = name; category.bonusPercent = bonusPercent;
+    state.games.filter(game => game.categoryId === category.id && ["draft", "ready"].includes(game.status)).forEach(game => { game.category = name; game.bonusPercent = bonusPercent; });
+  } else {
+    state.categories.push({ id: `category-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, bonusPercent });
+  }
+  resetCategoryForm();
+  await persist(wasEditing ? "Categoría actualizada" : "Categoría guardada");
+  setAdminTab("categories");
 });
 
 $("#saveClues").addEventListener("click", async () => {

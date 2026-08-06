@@ -10,7 +10,7 @@ export default async (request) => {
 
   if (request.method === "GET") {
     const state = await store.get("state", { type: "json", consistency: "strong" });
-    const current = state || { version: 2, activeGameId: null, games: [], updatedAt: null };
+    const current = state || { version: 3, activeGameId: null, games: [], categories: [], updatedAt: null };
     const expectedPassword = process.env.ADMIN_PASSWORD || "juanaadmin";
     if (request.headers.get("x-admin-password") === expectedPassword) return json(current);
     const active = current.games.find(game => game.id === current.activeGameId);

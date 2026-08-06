@@ -20,8 +20,8 @@
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 120 72" role="img">
             <path class="logo-left" d="M13 51a23 23 0 0 1 46 0H13Z" />
-            <path class="logo-normal" d="M61 23h46a23 23 0 0 1-46 0Z" />
-            <path class="logo-cup" d="M68 20h32v8c0 10-5 17-13 20v7h9v6H72v-6h9v-7c-8-3-13-10-13-20v-1h-7v5c0 6 4 10 10 11l-2 6c-9-2-14-8-14-17V21h13v-1Zm32 1h13v11c0 9-5 15-14 17l-2-6c6-1 10-5 10-11v-5h-7v-6Z" />
+            <path class="logo-bowl" d="M61 23h46a23 23 0 0 1-46 0Z" />
+            <path class="logo-trophy-details" d="M61 26h-8v5c0 8 5 14 13 16l2-5c-5-1-8-5-8-11h1v-5Zm46 0h8v5c0 8-5 14-13 16l-2-5c5-1 8-5 8-11h-1v-5ZM81 44h6v11h10v6H71v-6h10V44Z" />
           </svg>
         </span>
         <span><b>INTUIT</b><small>TRIVIA CLUB</small></span>
@@ -40,8 +40,8 @@
       <section class="hero shell">
         <div class="hero-copy reveal-in">
           <div class="eyebrow"><span class="live-dot"></span> LA DAILY AHORA TIENE PREMIO</div>
-          <h1>Una pregunta.<br /><em>Veinte puntos.</em><br />Que gane el mejor.</h1>
-          <p>La trivia diaria del equipo. Pensá rápido, pedí pocas pistas y escalá hasta la cima del ranking.</p>
+          <h1>Una pregunta.<br /><em>¿Sólo 20 puntos?</em><br />Adiviná y fijate.</h1>
+          <p>La trivia diaria del equipo. Cada categoría puede esconder puntos extra: pensá rápido, pedí pocas pistas y escalá hasta la cima.</p>
           <div class="hero-actions">
             <a class="button button-primary" href="#trivia">Ver la pregunta <span>↓</span></a>
             <div class="host-chip">
@@ -56,9 +56,9 @@
           <div class="question-sphere">
             <span class="hero-symbol hero-question">?</span>
             <svg class="hero-symbol hero-intuit" viewBox="0 0 120 72" aria-hidden="true"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M61 23h46a23 23 0 0 1-46 0Z"/></svg>
-            <svg class="hero-symbol hero-cup" viewBox="0 0 120 72" aria-hidden="true"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M68 20h32v8c0 10-5 17-13 20v7h9v6H72v-6h9v-7c-8-3-13-10-13-20v-1h-7v5c0 6 4 10 10 11l-2 6c-9-2-14-8-14-17V21h13v-1Zm32 1h13v11c0 9-5 15-14 17l-2-6c6-1 10-5 10-11v-5h-7v-6Z"/></svg>
+            <svg class="hero-symbol hero-cup" viewBox="0 0 120 72" aria-hidden="true"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M61 23h46a23 23 0 0 1-46 0Z"/><path d="M61 26h-8v5c0 8 5 14 13 16l2-5c-5-1-8-5-8-11h1v-5Zm46 0h8v5c0 8-5 14-13 16l-2-5c5-1 8-5 8-11h-1v-5ZM81 44h6v11h10v6H71v-6h10V44Z"/></svg>
           </div>
-          <div class="float-card card-points"><small>EN JUEGO</small><b id="heroPoints">20</b><span>puntos</span></div>
+          <div class="float-card card-points"><small>¿CUÁNTO VALE?</small><b id="heroPoints">?</b><span>descubrilo</span></div>
           <div class="float-card card-streak"><span>🔥</span><b>Daily streak</b><small>¿Quién sube hoy?</small></div>
           <span class="spark spark-one">✦</span><span class="spark spark-two">✦</span>
         </div>
@@ -71,7 +71,7 @@
               <span class="kicker">TRIVIA DEL DÍA</span>
               <h2 id="gameDateTitle">Preparando la próxima pregunta…</h2>
             </div>
-            <div class="points-pill"><small>VALE AHORA</small><strong id="currentPoints">20</strong><span>PTS</span></div>
+            <div class="points-pill"><small>VALE AHORA</small><strong id="currentPoints">?</strong><span>PTS</span></div>
           </div>
 
           <div class="game-layout">
@@ -94,7 +94,7 @@
                 <small>Cada pista usada reduce el premio.</small>
               </div>
               <div class="points-meter"><div id="pointsMeterFill"></div></div>
-              <div class="meter-labels"><span>Más pistas</span><b id="meterPoints">20 puntos disponibles</b></div>
+              <div class="meter-labels"><span>Más pistas</span><b id="meterPoints">El puntaje está por descubrirse</b></div>
             </aside>
           </div>
         </div>
@@ -131,7 +131,7 @@
 
     <footer>
       <div class="shell footer-inner">
-        <div class="brand footer-brand"><span class="brand-mark mini"><svg viewBox="0 0 120 72"><path class="logo-left" d="M13 51a23 23 0 0 1 46 0H13Z"/><path class="logo-normal" d="M61 23h46a23 23 0 0 1-46 0Z"/><path class="logo-cup" d="M68 20h32v8c0 10-5 17-13 20v7h9v6H72v-6h9v-7c-8-3-13-10-13-20v-1h-7v5c0 6 4 10 10 11l-2 6c-9-2-14-8-14-17V21h13v-1Zm32 1h13v11c0 9-5 15-14 17l-2-6c6-1 10-5 10-11v-5h-7v-6Z"/></svg></span><span><b>INTUIT</b><small>TRIVIA CLUB</small></span></div>
+        <div class="brand footer-brand"><span class="brand-mark mini"><svg viewBox="0 0 120 72"><path class="logo-left" d="M13 51a23 23 0 0 1 46 0H13Z"/><path class="logo-bowl" d="M61 23h46a23 23 0 0 1-46 0Z"/><path class="logo-trophy-details" d="M61 26h-8v5c0 8 5 14 13 16l2-5c-5-1-8-5-8-11h1v-5Zm46 0h8v5c0 8-5 14-13 16l-2-5c5-1 8-5 8-11h-1v-5ZM81 44h6v11h10v6H71v-6h10V44Z"/></svg></span><span><b>INTUIT</b><small>TRIVIA CLUB</small></span></div>
         <p>Hecho para pensar, reírse y competir un poquito.</p>
       </div>
     </footer>
@@ -168,6 +168,7 @@
         <button data-tab="clues" type="button">Pistas</button>
         <button data-tab="live" type="button">En juego</button>
         <button data-tab="winner" type="button">Ganador</button>
+        <button data-tab="categories" type="button">Categorías</button>
         <button data-tab="data" type="button">Datos</button>
       </div>
 
@@ -180,10 +181,10 @@
           <label for="adminCaption">Contexto opcional</label>
           <input id="adminCaption" type="text" placeholder="Consigna o aclaración" />
           <div class="category-config" id="categoryConfig">
-            <div><label for="adminCategory">Categoría</label><input id="adminCategory" type="text" list="categoryOptions" placeholder="Ej: Historia, Tecnología…" /><datalist id="categoryOptions"></datalist></div>
-            <div><label for="categoryBonus">Extra de dificultad</label><div class="percent-input"><input id="categoryBonus" type="number" min="0" max="200" step="5" value="0" /><span>%</span></div></div>
+            <div><label for="adminCategory">Categoría</label><div class="select-wrap"><select id="adminCategory"><option value="">Elegí una categoría</option></select><span>⌄</span></div></div>
+            <button class="mini-link" id="openCategories" type="button">+ Administrar categorías</button>
           </div>
-          <p class="category-help" id="categoryHelp">El extra se suma al puntaje disponible. Con 25%, la pregunta comienza valiendo 25 puntos.</p>
+          <p class="category-help" id="categoryHelp">Cargá las categorías una sola vez y después elegilas desde acá.</p>
           <div class="privacy-note"><span>◉</span><p><b>Borrador privado</b><small>El equipo todavía no puede ver esta pregunta.</small></p></div>
           <button class="button button-primary full" id="saveQuestion" type="button">Guardar pregunta y continuar</button>
         </section>
@@ -224,6 +225,17 @@
           <select id="winnerSelect"><option value="">Seleccionar participante</option></select>
           <div class="winner-summary" id="winnerSummary">El puntaje depende de cuántas pistas hayan sido reveladas.</div>
           <button class="button button-primary full" id="awardWinner" type="button">Confirmar ganador y sumar puntos</button>
+        </section>
+
+        <section class="tab-panel" data-panel="categories">
+          <div class="category-intro" id="categoryManager"><span>✦</span><div><b>Tu biblioteca de categorías</b><p>Crealas una sola vez. Después estarán disponibles en todas las preguntas con su extra de dificultad.</p></div></div>
+          <label for="categoryName">Nombre de la categoría</label>
+          <input id="categoryName" type="text" placeholder="Ej: Historia, Deportes, Tecnología…" />
+          <label for="newCategoryBonus">Extra de dificultad</label>
+          <div class="percent-input"><input id="newCategoryBonus" type="number" min="0" max="200" step="5" value="0" /><span>%</span></div>
+          <p class="category-help" id="newCategoryHelp">Con 0%, las preguntas de esta categoría comienzan en 20 puntos.</p>
+          <button class="button button-primary full" id="saveCategory" type="button">Guardar categoría</button>
+          <div class="category-library" id="categoryList"></div>
         </section>
 
         <section class="tab-panel" data-panel="data">
