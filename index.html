@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#5046e5" />
     <meta name="description" content="La trivia diaria del equipo de Intuit." />
     <title>Intuit Trivia Club</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
@@ -18,8 +19,9 @@
       <a class="brand" href="#inicio" aria-label="Intuit Trivia Club">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 120 72" role="img">
-            <path d="M13 51a23 23 0 0 1 46 0H13Z" />
-            <path d="M61 23h46a23 23 0 0 1-46 0Z" />
+            <path class="logo-left" d="M13 51a23 23 0 0 1 46 0H13Z" />
+            <path class="logo-normal" d="M61 23h46a23 23 0 0 1-46 0Z" />
+            <path class="logo-cup" d="M68 20h32v8c0 10-5 17-13 20v7h9v6H72v-6h9v-7c-8-3-13-10-13-20v-1h-7v5c0 6 4 10 10 11l-2 6c-9-2-14-8-14-17V21h13v-1Zm32 1h13v11c0 9-5 15-14 17l-2-6c6-1 10-5 10-11v-5h-7v-6Z" />
           </svg>
         </span>
         <span><b>INTUIT</b><small>TRIVIA CLUB</small></span>
@@ -51,8 +53,12 @@
         <div class="hero-visual reveal-in delay-1" aria-hidden="true">
           <div class="orbit orbit-one"></div>
           <div class="orbit orbit-two"></div>
-          <div class="question-sphere"><span>?</span></div>
-          <div class="float-card card-points"><small>EN JUEGO</small><b>20</b><span>puntos</span></div>
+          <div class="question-sphere">
+            <span class="hero-symbol hero-question">?</span>
+            <svg class="hero-symbol hero-intuit" viewBox="0 0 120 72" aria-hidden="true"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M61 23h46a23 23 0 0 1-46 0Z"/></svg>
+            <svg class="hero-symbol hero-cup" viewBox="0 0 120 72" aria-hidden="true"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M68 20h32v8c0 10-5 17-13 20v7h9v6H72v-6h9v-7c-8-3-13-10-13-20v-1h-7v5c0 6 4 10 10 11l-2 6c-9-2-14-8-14-17V21h13v-1Zm32 1h13v11c0 9-5 15-14 17l-2-6c6-1 10-5 10-11v-5h-7v-6Z"/></svg>
+          </div>
+          <div class="float-card card-points"><small>EN JUEGO</small><b id="heroPoints">20</b><span>puntos</span></div>
           <div class="float-card card-streak"><span>🔥</span><b>Daily streak</b><small>¿Quién sube hoy?</small></div>
           <span class="spark spark-one">✦</span><span class="spark spark-two">✦</span>
         </div>
@@ -70,7 +76,7 @@
 
           <div class="game-layout">
             <article class="question-card surface-card">
-              <div class="question-number">PREGUNTA <span>#<span id="questionNumber">—</span></span></div>
+              <div class="question-meta"><div class="question-number">PREGUNTA <span>#<span id="questionNumber">—</span></span></div><span class="question-category" id="questionCategory">CATEGORÍA LIBRE</span></div>
               <h3 id="questionText">Juana todavía no publicó la pregunta de hoy.</h3>
               <p id="questionCaption">Cuando esté lista, aparecerá acá para todo el equipo.</p>
               <div class="answer-status" id="answerStatus"><span></span> Esperando la pregunta</div>
@@ -125,7 +131,7 @@
 
     <footer>
       <div class="shell footer-inner">
-        <div class="brand footer-brand"><span class="brand-mark mini"><svg viewBox="0 0 120 72"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M61 23h46a23 23 0 0 1-46 0Z"/></svg></span><span><b>INTUIT</b><small>TRIVIA CLUB</small></span></div>
+        <div class="brand footer-brand"><span class="brand-mark mini"><svg viewBox="0 0 120 72"><path class="logo-left" d="M13 51a23 23 0 0 1 46 0H13Z"/><path class="logo-normal" d="M61 23h46a23 23 0 0 1-46 0Z"/><path class="logo-cup" d="M68 20h32v8c0 10-5 17-13 20v7h9v6H72v-6h9v-7c-8-3-13-10-13-20v-1h-7v5c0 6 4 10 10 11l-2 6c-9-2-14-8-14-17V21h13v-1Zm32 1h13v11c0 9-5 15-14 17l-2-6c6-1 10-5 10-11v-5h-7v-6Z"/></svg></span><span><b>INTUIT</b><small>TRIVIA CLUB</small></span></div>
         <p>Hecho para pensar, reírse y competir un poquito.</p>
       </div>
     </footer>
@@ -172,7 +178,12 @@
           <label for="adminQuestion">Pregunta del día</label>
           <textarea id="adminQuestion" rows="5" placeholder="¿Qué producto cambió para siempre…?"></textarea>
           <label for="adminCaption">Contexto opcional</label>
-          <input id="adminCaption" type="text" placeholder="Categoría, consigna o aclaración" />
+          <input id="adminCaption" type="text" placeholder="Consigna o aclaración" />
+          <div class="category-config" id="categoryConfig">
+            <div><label for="adminCategory">Categoría</label><input id="adminCategory" type="text" list="categoryOptions" placeholder="Ej: Historia, Tecnología…" /><datalist id="categoryOptions"></datalist></div>
+            <div><label for="categoryBonus">Extra de dificultad</label><div class="percent-input"><input id="categoryBonus" type="number" min="0" max="200" step="5" value="0" /><span>%</span></div></div>
+          </div>
+          <p class="category-help" id="categoryHelp">El extra se suma al puntaje disponible. Con 25%, la pregunta comienza valiendo 25 puntos.</p>
           <div class="privacy-note"><span>◉</span><p><b>Borrador privado</b><small>El equipo todavía no puede ver esta pregunta.</small></p></div>
           <button class="button button-primary full" id="saveQuestion" type="button">Guardar pregunta y continuar</button>
         </section>
@@ -208,7 +219,7 @@
         </section>
 
         <section class="tab-panel" data-panel="winner">
-          <div class="score-preview"><small>PUNTAJE ACTUAL</small><b id="adminPoints">20</b><span>puntos</span></div>
+          <div class="score-preview"><small>PUNTAJE ACTUAL</small><b id="adminPoints">20</b><span>puntos</span><em id="adminBonusSummary"></em></div>
           <label for="winnerSelect">¿Quién respondió correctamente?</label>
           <select id="winnerSelect"><option value="">Seleccionar participante</option></select>
           <div class="winner-summary" id="winnerSummary">El puntaje depende de cuántas pistas hayan sido reveladas.</div>

@@ -15,11 +15,13 @@ Las pantallas públicas consultan el estado compartido cada 4 segundos. Los borr
 
 ### Flujo de la anfitriona
 
-1. Guardar la pregunta como borrador privado.
+1. Guardar la pregunta como borrador privado, con categoría y porcentaje extra de dificultad.
 2. Cargar pistas ordenadas de la más difícil a la más fácil.
 3. Publicar la pregunta para el equipo.
 4. Mostrar y leer pistas en orden mientras baja el puntaje.
 5. Seleccionar al ganador para cerrar la partida.
+
+El puntaje base es 20. El extra de categoría se aplica proporcionalmente antes de redondear cada tramo de pistas; una categoría con 25% y cuatro pistas recorre 25, 20, 15, 10 y 5 puntos.
 
 ## Deploy en Netlify
 

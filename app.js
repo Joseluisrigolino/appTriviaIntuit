@@ -102,8 +102,16 @@ function calculatePoints(game) {
   if (!game) return 20;
   const total = game.clues.length;
   const revealed = game.clues.filter(clue => clue.revealed).length;
-  if (!total) return 20;
-  return Math.max(1, Math.round(20 * (total + 1 - revealed) / (total + 1)));
+  const basePoints = total ? 20 * (total + 1 - revealed) / (total + 1) : 20;
+  return Math.max(1, Math.round(basePoints * (1 + categoryBonus(game) / 100)));
+}
+
+function categoryBonus(game) {
+  return Math.max(0, Math.min(200, Number(game?.bonusPercent) || 0));
+}
+
+function maxPoints(game) {
+  return Math.round(20 * (1 + categoryBonus(game) / 100));
 }
 
 function scoresByParticipant() {
@@ -128,10 +136,13 @@ function renderGame() {
   const points = calculatePoints(game);
   const revealed = game?.clues.filter(clue => clue.revealed) || [];
   const completed = game?.status === "completed";
+  const availablePoints = completed ? game.pointsAwarded : points;
   $("#currentPoints").textContent = completed ? game.pointsAwarded : points;
-  $("#meterPoints").textContent = `${completed ? game.pointsAwarded : points} puntos disponibles`;
-  $("#pointsMeterFill").style.width = `${(completed ? game.pointsAwarded : points) / 20 * 100}%`;
+  $("#heroPoints").textContent = availablePoints;
+  $("#meterPoints").textContent = `${availablePoints} puntos disponibles`;
+  $("#pointsMeterFill").style.width = `${availablePoints / maxPoints(game) * 100}%`;
   $("#questionNumber").textContent = game ? String(state.games.findIndex(item => item.id === game.id) + 1).padStart(2, "0") : "—";
+  $("#questionCategory").textContent = game?.category ? `${game.category.toUpperCase()}${categoryBonus(game) ? ` · +${categoryBonus(game)}%` : ""}` : "CATEGORÍA LIBRE";
   $("#gameDateTitle").textContent = game ? formatDate(game.date) : "Preparando la próxima pregunta…";
   $("#questionText").textContent = game?.question || "Juana todavía no publicó la pregunta de hoy.";
   $("#questionCaption").textContent = game?.caption || (game ? "La respuesta se revela durante la daily." : "Cuando esté lista, aparecerá acá para todo el equipo.");
@@ -161,6 +172,7 @@ function renderHistory() {
   $("#historyGrid").innerHTML = completed.map(game => `
     <article class="history-card">
       <div class="history-date"><span>${formatDate(game.date, false).toUpperCase()}</span><span>${game.clues.filter(c => c.revealed).length} PISTAS</span></div>
+      <span class="history-category">${escapeHtml(game.category || "Categoría libre")}${categoryBonus(game) ? ` · +${categoryBonus(game)}%` : ""}</span>
       <h3>${escapeHtml(game.question)}</h3>
       <div class="history-winner"><span class="avatar">${initials(game.winner)}</span><span>${escapeHtml(game.winner)}</span><b>+${game.pointsAwarded} pts</b></div>
     </article>`).join("");
@@ -180,21 +192,28 @@ function renderAdmin() {
   $("#gameDate").value = game?.date || today();
   $("#adminQuestion").value = game?.question || "";
   $("#adminCaption").value = game?.caption || "";
+  $("#adminCategory").value = game?.category || "";
+  $("#categoryBonus").value = categoryBonus(game);
   $("#gameDate").disabled = locked;
   $("#adminQuestion").disabled = locked;
   $("#adminCaption").disabled = locked;
+  $("#adminCategory").disabled = locked;
+  $("#categoryBonus").disabled = locked;
   $("#saveQuestion").disabled = locked;
   $("#saveQuestion").textContent = locked ? "Pregunta ya publicada" : "Guardar pregunta y continuar";
   $("#adminPoints").textContent = calculatePoints(game);
+  $("#adminBonusSummary").textContent = categoryBonus(game) ? `+${categoryBonus(game)}% ${game?.category || "extra"}` : "Sin extra";
   $("#winnerSelect").innerHTML = `<option value="">Seleccionar participante</option>${PARTICIPANTS.map(name => `<option value="${escapeHtml(name)}" ${game?.winner === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
   $("#awardWinner").disabled = game?.status !== "published";
   $("#awardWinner").textContent = game?.winner ? `Resultado cargado: ${game.winner}` : "Confirmar ganador y sumar puntos";
-  $("#winnerSummary").textContent = game ? `${game.clues.filter(c => c.revealed).length} de ${game.clues.length} pistas usadas.` : "Primero prepará y publicá una pregunta.";
+  $("#winnerSummary").textContent = game ? `${game.clues.filter(c => c.revealed).length} de ${game.clues.length} pistas usadas${categoryBonus(game) ? ` · bonus de categoría +${categoryBonus(game)}% incluido` : ""}.` : "Primero prepará y publicá una pregunta.";
   $("#addClue").disabled = !game || locked;
   $("#saveClues").disabled = !game || locked;
   $("#publishGame").disabled = game?.status !== "ready" || !game.clues.length;
   renderAdminClues(game?.clues || [], locked);
   renderLivePanel(game);
+  renderCategoryOptions();
+  updateCategoryHelp();
 
   const allowed = {
     question: true,
@@ -247,13 +266,25 @@ function renderLivePanel(game) {
   const next = game?.clues.find(clue => !clue.revealed);
   $("#liveQuestion").textContent = game?.question || "Publicá una pregunta para comenzar.";
   $("#livePoints").textContent = points;
-  $("#liveProgressFill").style.width = `${points / 20 * 100}%`;
+  $("#liveProgressFill").style.width = `${points / maxPoints(game) * 100}%`;
   $("#nextClueText").textContent = next?.text || (game?.clues.length ? "Ya usaste todas las pistas." : "Todavía no cargaste pistas.");
   $("#nextClueCard").classList.toggle("finished", !next);
   $("#revealNextClue").disabled = game?.status !== "published" || !next;
   $("#revealNextClue").textContent = next ? `Mostrar pista ${revealed.length + 1} para que Juana la lea` : "No quedan pistas";
   $("#usedClues").innerHTML = revealed.map((clue, index) => `<div class="used-clue"><span>${index + 1}</span><p>${escapeHtml(clue.text)}</p></div>`).join("");
   $("#goToWinner").disabled = game?.status !== "published";
+}
+
+function renderCategoryOptions() {
+  const categories = new Map();
+  state.games.forEach(game => { if (game.category) categories.set(game.category.trim().toLowerCase(), { name: game.category.trim(), bonus: categoryBonus(game) }); });
+  $("#categoryOptions").innerHTML = [...categories.values()].map(category => `<option value="${escapeHtml(category.name)}">+${category.bonus}%</option>`).join("");
+}
+
+function updateCategoryHelp() {
+  const bonus = Math.max(0, Math.min(200, Number($("#categoryBonus").value) || 0));
+  const initial = Math.round(20 * (1 + bonus / 100));
+  $("#categoryHelp").textContent = bonus ? `Esta categoría agrega ${bonus}%: la pregunta comenzará valiendo ${initial} puntos.` : "Sin extra: la pregunta comenzará valiendo 20 puntos.";
 }
 
 function renderStorageStatus() {
@@ -287,9 +318,10 @@ function closeLogin() { $("#loginModal").classList.remove("open"); $("#loginModa
 const TOUR_STEPS = [
   { tab: "question", target: "#hostProgress", title: "Tu trivia, paso a paso", text: "Este recorrido marca en qué etapa estás: pregunta, pistas, juego en vivo y resultado. Podés volver a cualquier paso habilitado." },
   { tab: "question", target: "#saveQuestion", title: "1. Guardá un borrador privado", text: "Escribí la pregunta y guardala. El equipo todavía no verá nada; recién entonces se habilita la carga de pistas." },
-  { tab: "clues", target: ".publish-box", title: "2. Ordená y publicá", text: "Cargá las pistas de la más difícil a la más fácil. Cuando esté todo listo, este botón publica únicamente la pregunta." },
-  { tab: "live", target: "#nextClueCard", title: "3. Leé las pistas en la daily", text: "Mostrá la siguiente pista sólo en tu panel y leela en voz alta. Los participantes verán el contador, nunca el texto, para que nadie tenga ventaja." },
-  { tab: "winner", target: "#awardWinner", title: "4. Cerrá con el ganador", text: "Elegí quién acertó. Calculamos los puntos según las pistas usadas y actualizamos automáticamente el ranking de todo el equipo." }
+  { tab: "question", target: "#categoryConfig", title: "2. Definí la dificultad", text: "Asigná una categoría y su porcentaje extra. Un 25% hace que la pregunta empiece en 25 puntos; el bonus también baja proporcionalmente con las pistas." },
+  { tab: "clues", target: ".publish-box", title: "3. Ordená y publicá", text: "Cargá las pistas de la más difícil a la más fácil. Cuando esté todo listo, este botón publica únicamente la pregunta." },
+  { tab: "live", target: "#nextClueCard", title: "4. Leé las pistas en la daily", text: "Mostrá la siguiente pista sólo en tu panel y leela en voz alta. Los participantes verán el contador, nunca el texto, para que nadie tenga ventaja." },
+  { tab: "winner", target: "#awardWinner", title: "5. Cerrá con el ganador", text: "Elegí quién acertó. Calculamos pistas y bonus de categoría, y actualizamos automáticamente el ranking de todo el equipo." }
 ];
 
 function startTour() {
@@ -360,13 +392,15 @@ window.addEventListener("resize", () => { if ($("#tourLayer").classList.contains
 $("#saveQuestion").addEventListener("click", async () => {
   const question = $("#adminQuestion").value.trim();
   const date = $("#gameDate").value;
+  const category = $("#adminCategory").value.trim();
+  const bonusPercent = Math.max(0, Math.min(200, Number($("#categoryBonus").value) || 0));
   if (!question || !date) return showToast("Completá la fecha y la pregunta");
   let game = activeGame();
   if (!game || game.status === "completed") {
-    game = { id: `${date}-${Date.now()}`, date, question, caption: $("#adminCaption").value.trim(), clues: [], status: "draft", winner: null, pointsAwarded: null, completedAt: null };
+    game = { id: `${date}-${Date.now()}`, date, question, caption: $("#adminCaption").value.trim(), category, bonusPercent, clues: [], status: "draft", winner: null, pointsAwarded: null, completedAt: null };
     state.games.push(game); state.activeGameId = game.id;
   } else if (game.status === "draft" || game.status === "ready") {
-    game.date = date; game.question = question; game.caption = $("#adminCaption").value.trim();
+    game.date = date; game.question = question; game.caption = $("#adminCaption").value.trim(); game.category = category; game.bonusPercent = bonusPercent;
     game.status = game.clues.length ? "ready" : "draft";
   } else return showToast("La pregunta ya fue publicada");
   await persist("Borrador privado guardado");
@@ -377,6 +411,14 @@ $("#addClue").addEventListener("click", () => {
   const clues = draftCluesFromRows();
   clues.push({ text: "", revealed: false }); renderAdminClues(clues);
   $$(".admin-clue-row input").at(-1)?.focus();
+});
+
+$("#categoryBonus").addEventListener("input", updateCategoryHelp);
+$("#adminCategory").addEventListener("change", () => {
+  const name = $("#adminCategory").value.trim().toLowerCase();
+  const known = [...state.games].reverse().find(game => game.category?.trim().toLowerCase() === name);
+  if (known) $("#categoryBonus").value = categoryBonus(known);
+  updateCategoryHelp();
 });
 
 $("#saveClues").addEventListener("click", async () => {
@@ -430,8 +472,8 @@ function download(filename, content, type) {
   const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([content], { type })); link.download = filename; link.click(); URL.revokeObjectURL(link.href);
 }
 $("#exportCsv").addEventListener("click", () => {
-  const rows = [["Fecha", "Día", "Jugador", "Puntos", "Pregunta", "Pistas usadas"]];
-  state.games.filter(game => game.winner).forEach(game => rows.push([game.date, formatDate(game.date).split(",")[0], game.winner, game.pointsAwarded, game.question, game.clues.filter(c => c.revealed).length]));
+  const rows = [["Fecha", "Día", "Jugador", "Puntos", "Categoría", "Extra categoría", "Pregunta", "Pistas usadas"]];
+  state.games.filter(game => game.winner).forEach(game => rows.push([game.date, formatDate(game.date).split(",")[0], game.winner, game.pointsAwarded, game.category || "", `${categoryBonus(game)}%`, game.question, game.clues.filter(c => c.revealed).length]));
   const csv = "\uFEFF" + rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\r\n");
   download(`puntajes-trivia-${today()}.csv`, csv, "text/csv;charset=utf-8"); showToast("CSV descargado");
 });
