@@ -151,9 +151,16 @@
         <div><span class="kicker">MODO HOST</span><h2>Panel de Juana</h2></div>
         <button class="modal-close" id="closeAdmin" aria-label="Cerrar panel">×</button>
       </div>
+      <div class="host-progress" id="hostProgress">
+        <div data-step="question"><span>1</span><small>Pregunta</small></div>
+        <i></i><div data-step="clues"><span>2</span><small>Pistas</small></div>
+        <i></i><div data-step="live"><span>3</span><small>En juego</small></div>
+        <i></i><div data-step="winner"><span>4</span><small>Resultado</small></div>
+      </div>
       <div class="admin-tabs" role="tablist">
         <button class="active" data-tab="question" type="button">Pregunta</button>
         <button data-tab="clues" type="button">Pistas</button>
+        <button data-tab="live" type="button">En juego</button>
         <button data-tab="winner" type="button">Ganador</button>
         <button data-tab="data" type="button">Datos</button>
       </div>
@@ -166,14 +173,38 @@
           <textarea id="adminQuestion" rows="5" placeholder="¿Qué producto cambió para siempre…?"></textarea>
           <label for="adminCaption">Contexto opcional</label>
           <input id="adminCaption" type="text" placeholder="Categoría, consigna o aclaración" />
-          <button class="button button-primary full" id="saveQuestion" type="button">Publicar pregunta</button>
+          <div class="privacy-note"><span>◉</span><p><b>Borrador privado</b><small>El equipo todavía no puede ver esta pregunta.</small></p></div>
+          <button class="button button-primary full" id="saveQuestion" type="button">Guardar pregunta y continuar</button>
         </section>
 
         <section class="tab-panel" data-panel="clues">
-          <div class="admin-note">Agregá todas las pistas antes de jugar. Cada pista revelada descontará el mismo porcentaje.</div>
+          <div class="admin-note"><b>Ordenalas de la más difícil a la más fácil.</b><br />Durante el juego se habilitarán una por una y cada pista usada descontará el mismo porcentaje.</div>
           <div id="adminClues"></div>
           <button class="button button-soft full" id="addClue" type="button">+ Agregar una pista</button>
           <button class="button button-primary full" id="saveClues" type="button">Guardar pistas</button>
+          <div class="publish-box">
+            <span>¿Todo listo?</span>
+            <p>Al publicar, la pregunta aparecerá automáticamente en las pantallas del equipo. Las pistas seguirán siendo privadas.</p>
+            <button class="button button-primary full" id="publishGame" type="button">Publicar pregunta para el equipo</button>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="live">
+          <div class="live-host-header">
+            <span class="live-rings"><i></i></span>
+            <div><span class="kicker">EN VIVO</span><h3>El equipo está adivinando</h3></div>
+          </div>
+          <div class="live-question" id="liveQuestion">Publicá una pregunta para comenzar.</div>
+          <div class="live-score-row"><span>Puntaje en juego</span><b><span id="livePoints">20</span> pts</b></div>
+          <div class="live-progress"><div id="liveProgressFill"></div></div>
+          <div class="next-clue" id="nextClueCard">
+            <small>PRÓXIMA PISTA · MÁS DIFÍCIL DISPONIBLE</small>
+            <p id="nextClueText">Todavía no cargaste pistas.</p>
+          </div>
+          <button class="button button-primary full" id="revealNextClue" type="button">Mostrar pista para que Juana la lea</button>
+          <div class="oral-warning"><span>🔒</span><p><b>Leela en voz alta.</b><small>El texto no se muestra en las pantallas de los participantes para que nadie tenga ventaja por refrescar antes.</small></p></div>
+          <div class="used-clues" id="usedClues"></div>
+          <button class="button button-soft full" id="goToWinner" type="button">¡Ya tenemos ganador!</button>
         </section>
 
         <section class="tab-panel" data-panel="winner">
@@ -193,6 +224,17 @@
           <button class="text-button danger" id="undoLast" type="button">Deshacer el último resultado</button>
           <button class="text-button" id="logoutButton" type="button">Cerrar sesión de Juana</button>
         </section>
+      </div>
+    </div>
+
+    <div class="tour-layer" id="tourLayer" aria-hidden="true">
+      <div class="tour-spotlight" id="tourSpotlight"></div>
+      <div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+        <div class="tour-top"><span id="tourCount">1 de 5</span><button id="skipTour" type="button">Saltar tutorial</button></div>
+        <span class="kicker">RECORRIDO DE HOST</span>
+        <h3 id="tourTitle">Tu trivia, paso a paso</h3>
+        <p id="tourText"></p>
+        <div class="tour-actions"><button class="button button-soft" id="tourBack" type="button">Atrás</button><button class="button button-primary" id="tourNext" type="button">Continuar</button></div>
       </div>
     </div>
 

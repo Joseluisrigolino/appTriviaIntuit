@@ -9,15 +9,21 @@ export default async (request) => {
   const store = getStore("intuit-trivia");
 
   if (request.method === "GET") {
-    const state = await store.get("state", { type: "json" });
-    const current = state || { version: 1, activeGameId: null, games: [], updatedAt: null };
+    const state = await store.get("state", { type: "json", consistency: "strong" });
+    const current = state || { version: 2, activeGameId: null, games: [], updatedAt: null };
     const expectedPassword = process.env.ADMIN_PASSWORD || "juanaadmin";
     if (request.headers.get("x-admin-password") === expectedPassword) return json(current);
+    const active = current.games.find(game => game.id === current.activeGameId);
+    const isActivePublic = active && ["published", "completed"].includes(active.status || (active.winner ? "completed" : "published"));
     const publicState = {
       ...current,
-      games: current.games.map(game => ({
+      activeGameId: isActivePublic ? current.activeGameId : null,
+      games: current.games.filter(game => ["published", "completed"].includes(game.status || (game.winner ? "completed" : "published"))).map(game => ({
         ...game,
-        clues: game.clues.map(clue => ({ ...clue, text: clue.revealed ? clue.text : "" }))
+        clues: game.clues.map(clue => ({
+          ...clue,
+          text: game.status === "completed" && clue.revealed ? clue.text : ""
+        }))
       }))
     };
     return json(publicState);
