@@ -24,6 +24,8 @@ Las pantallas públicas consultan el estado compartido cada 4 segundos. Los borr
 
 El puntaje base es 20. El extra de categoría se aplica proporcionalmente antes de redondear cada tramo de pistas; una categoría con 25% y cuatro pistas recorre 25, 20, 15, 10 y 5 puntos.
 
+La vista principal del campeonato es un tablero de 100 puntos por vuelta; la tabla clásica sigue disponible desde el selector superior. Cada pregunta guarda también su respuesta, que permanece privada hasta cerrar la partida. Si nadie responde, Juana puede finalizarla sin ganador y con cero puntos.
+
 ## Deploy en Netlify
 
 1. Importar este repositorio desde GitHub.

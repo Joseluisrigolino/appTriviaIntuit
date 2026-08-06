@@ -80,6 +80,7 @@
               <h3 id="questionText">Juana todavía no publicó la pregunta de hoy.</h3>
               <p id="questionCaption">Cuando esté lista, aparecerá acá para todo el equipo.</p>
               <div class="answer-status" id="answerStatus"><span></span> Esperando la pregunta</div>
+              <div class="answer-reveal" id="answerReveal" hidden><small>RESPUESTA CORRECTA</small><b id="answerRevealText"></b></div>
             </article>
 
             <aside class="clues-card surface-card">
@@ -106,7 +107,18 @@
           <p>El ranking se actualiza después de cada daily.</p>
         </div>
         <div class="ranking-grid">
-          <div class="leaderboard surface-card" id="leaderboard"></div>
+          <div class="championship-main">
+            <div class="ranking-view-tabs" role="tablist" aria-label="Vista del campeonato">
+              <button class="active" data-ranking-view="board" type="button"><span>◇</span> Tablero</button>
+              <button data-ranking-view="table" type="button"><span>☷</span> Tabla</button>
+            </div>
+            <div class="ranking-panel active" id="boardRankingPanel" data-ranking-panel="board">
+              <div class="race-board surface-card" id="raceBoard"></div>
+            </div>
+            <div class="ranking-panel" id="tableRankingPanel" data-ranking-panel="table">
+              <div class="leaderboard surface-card" id="leaderboard"></div>
+            </div>
+          </div>
           <aside class="prize-card">
             <div class="prize-glow"></div>
             <span class="prize-icon">🏆</span>
@@ -178,6 +190,8 @@
           <input id="gameDate" type="date" />
           <label for="adminQuestion">Pregunta del día</label>
           <textarea id="adminQuestion" rows="5" placeholder="¿Qué producto cambió para siempre…?"></textarea>
+          <label for="adminAnswer">Respuesta correcta</label>
+          <input id="adminAnswer" type="text" placeholder="La respuesta que quedará en el historial" />
           <label for="adminCaption">Contexto opcional</label>
           <input id="adminCaption" type="text" placeholder="Consigna o aclaración" />
           <div class="category-config" id="categoryConfig">
@@ -222,7 +236,7 @@
         <section class="tab-panel" data-panel="winner">
           <div class="score-preview"><small>PUNTAJE ACTUAL</small><b id="adminPoints">20</b><span>puntos</span><em id="adminBonusSummary"></em></div>
           <label for="winnerSelect">¿Quién respondió correctamente?</label>
-          <select id="winnerSelect"><option value="">Seleccionar participante</option></select>
+          <select id="winnerSelect"><option value="">Seleccionar participante</option><option value="__unanswered__">Nadie respondió</option></select>
           <div class="winner-summary" id="winnerSummary">El puntaje depende de cuántas pistas hayan sido reveladas.</div>
           <button class="button button-primary full" id="awardWinner" type="button">Confirmar ganador y sumar puntos</button>
         </section>

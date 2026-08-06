@@ -20,6 +20,7 @@ export default async (request) => {
       activeGameId: isActivePublic ? current.activeGameId : null,
       games: current.games.filter(game => ["published", "completed"].includes(game.status || (game.winner ? "completed" : "published"))).map(game => ({
         ...game,
+        answer: game.status === "completed" ? game.answer || "" : "",
         clues: game.clues.map(clue => ({
           ...clue,
           text: game.status === "completed" && clue.revealed ? clue.text : ""
