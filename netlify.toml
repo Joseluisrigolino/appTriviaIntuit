@@ -7,5 +7,10 @@
   to = "/.netlify/functions/state"
   status = 200
 
+[[redirects]]
+  from = "/api/auth"
+  to = "/.netlify/functions/auth"
+  status = 200
+
 [functions]
   node_bundler = "esbuild"

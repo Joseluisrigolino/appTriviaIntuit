@@ -240,6 +240,21 @@
 
         <section class="tab-panel" data-panel="data">
           <div class="storage-status" id="storageStatus"><span></span><div><b>Comprobando guardado…</b><small></small></div></div>
+          <div class="password-prank-card">
+            <span>🕵️</span>
+            <div><b>Operación cero trampa</b><p>Cambiá la contraseña así ni José ni Seba se hacen los distraídos y tocan los puntos.</p></div>
+            <button class="button button-soft full" id="changePasswordButton" type="button">Cambiar la contraseña secreta</button>
+          </div>
+          <form class="password-change-form" id="passwordChangeForm" hidden>
+            <label for="currentAdminPassword">Contraseña actual</label>
+            <input id="currentAdminPassword" type="password" autocomplete="current-password" />
+            <label for="newAdminPassword">Nueva contraseña</label>
+            <input id="newAdminPassword" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres" />
+            <label for="confirmAdminPassword">Repetí la nueva contraseña</label>
+            <input id="confirmAdminPassword" type="password" autocomplete="new-password" />
+            <p class="form-error" id="passwordChangeError"></p>
+            <button class="button button-primary full" id="saveNewPassword" type="submit">Guardar y dejar afuera a los tramposos</button>
+          </form>
           <p class="data-copy">Descargá una copia de seguridad para conservar preguntas, pistas y puntajes.</p>
           <button class="button button-soft full" id="exportCsv" type="button">Descargar puntajes CSV</button>
           <button class="button button-soft full" id="exportJson" type="button">Descargar respaldo completo</button>

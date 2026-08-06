@@ -31,3 +31,5 @@ El puntaje base es 20. El extra de categoría se aplica proporcionalmente antes 
 3. La contraseña de administración solicitada está validada también en la función de guardado.
 
 La función en `netlify/functions/state.mjs` persiste el estado con Netlify Blobs.
+
+La contraseña inicial de Juana es la solicitada originalmente. Desde la pestaña **Datos** puede reemplazarla; Netlify guarda únicamente una derivación segura con `scrypt`, y las sesiones que conserven la contraseña anterior dejan de poder modificar el estado compartido.

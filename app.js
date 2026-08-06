@@ -2,9 +2,11 @@ const PARTICIPANTS = [
   "Daniel Gonzalez", "Jose Rigolino", "Juan Pereyra", "Julieta Ramos",
   "Julio Costas", "Marisa Cinque", "Marisol Galain", "Sebastian Romano", "Thiago Santero"
 ];
-const ADMIN_PASSWORD = "juanaadmin";
+const INITIAL_ADMIN_PASSWORD = "juanaadmin";
 const STORAGE_KEY = "intuit-trivia-state-v2";
+const LOCAL_PASSWORD_KEY = "intuit-trivia-local-password";
 const API_URL = "/api/state";
+const AUTH_URL = "/api/auth";
 const REFRESH_INTERVAL = 4000;
 
 const defaultState = () => ({ version: 3, activeGameId: null, games: [], categories: [], updatedAt: null });
@@ -21,7 +23,7 @@ const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argent
 const formatDate = (date, long = true) => new Intl.DateTimeFormat("es-AR", long ? { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" } : { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
 const initials = name => name.split(" ").map(part => part[0]).slice(0, 2).join("");
 const activeGame = () => state.games.find(game => game.id === state.activeGameId) || null;
-const isAdmin = () => sessionStorage.getItem("intuit-trivia-admin") === ADMIN_PASSWORD;
+const isAdmin = () => Boolean(sessionStorage.getItem("intuit-trivia-admin"));
 
 function normalizeState(raw) {
   if (!raw || !Array.isArray(raw.games)) return defaultState();
@@ -77,12 +79,37 @@ async function loadState() {
 }
 
 async function loadAdminState() {
-  if (storageMode !== "cloud") return;
+  if (storageMode !== "cloud") return true;
   try {
     state = await fetchState(sessionStorage.getItem("intuit-trivia-admin") || "");
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     render();
-  } catch { showToast("No se pudo cargar el panel compartido"); }
+    return true;
+  } catch {
+    showToast("La sesión de Juana venció o cambió la contraseña");
+    return false;
+  }
+}
+
+async function authenticateAdmin(password) {
+  if (storageMode === "local") return password === (localStorage.getItem(LOCAL_PASSWORD_KEY) || INITIAL_ADMIN_PASSWORD);
+  try {
+    const response = await fetch(AUTH_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "login", password }) });
+    return response.ok;
+  } catch { return false; }
+}
+
+async function updateAdminPassword(currentPassword, newPassword) {
+  if (storageMode === "local") {
+    if (currentPassword !== (localStorage.getItem(LOCAL_PASSWORD_KEY) || INITIAL_ADMIN_PASSWORD)) return { ok: false, error: "La contraseña actual no es correcta" };
+    localStorage.setItem(LOCAL_PASSWORD_KEY, newPassword);
+    return { ok: true };
+  }
+  try {
+    const response = await fetch(AUTH_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "change", currentPassword, newPassword }) });
+    const result = await response.json();
+    return response.ok ? { ok: true } : { ok: false, error: result.error || "No se pudo cambiar la contraseña" };
+  } catch { return { ok: false, error: "No se pudo conectar con el guardado compartido" }; }
 }
 
 async function refreshPublicState() {
@@ -107,6 +134,14 @@ async function persist(message = "Cambios guardados") {
       headers: { "Content-Type": "application/json", "X-Admin-Password": sessionStorage.getItem("intuit-trivia-admin") || "" },
       body: JSON.stringify(state)
     });
+    if (response.status === 401) {
+      sessionStorage.removeItem("intuit-trivia-admin");
+      closeAdmin();
+      await loadState();
+      openLogin();
+      showToast("La contraseña cambió · volvé a iniciar sesión");
+      return;
+    }
     if (!response.ok) throw new Error("Remote save failed");
     storageMode = "cloud";
   } catch { storageMode = "local"; }
@@ -372,7 +407,7 @@ function openLogin() { $("#loginModal").classList.add("open"); $("#loginModal").
 function closeLogin() { $("#loginModal").classList.remove("open"); $("#loginModal").setAttribute("aria-hidden", "true"); $("#loginError").textContent = ""; }
 
 const TOUR_STEPS = [
-  { tab: "categories", target: "#categoryManager", title: "Primero: creá tus categorías", text: "Este paso se hace una sola vez. Guardá cada categoría con su porcentaje extra; después aparecerá lista para seleccionar en todas las preguntas." },
+  { tab: "categories", target: "#categoryManager", title: "Primero: creá tus categorías", text: "Esto se hace una sola vez. Y por lo que tengo entendido, en la daily saben demasiado de fútbol: no les regales ventaja con un extra ahí. Para las demás categorías… evaluá cuánto sufren." },
   { tab: "question", target: "#hostProgress", title: "Tu trivia, paso a paso", text: "Este recorrido marca en qué etapa estás: pregunta, pistas, juego en vivo y resultado. Podés volver a cualquier paso habilitado." },
   { tab: "question", target: "#categoryConfig", title: "1. Elegí desde tu biblioteca", text: "Seleccioná una categoría ya cargada. Su extra se aplica automáticamente: acá no tenés que volver a escribir ningún porcentaje." },
   { tab: "question", target: "#saveQuestion", title: "2. Guardá un borrador privado", text: "Escribí la pregunta y guardala. El equipo todavía no verá nada; recién entonces se habilita la carga de pistas." },
@@ -425,7 +460,8 @@ function endTour(restore = true) {
 
 $("#loginButton").addEventListener("click", async () => {
   if (!isAdmin()) return openLogin();
-  await loadAdminState(); openAdmin();
+  if (!(await loadAdminState())) { sessionStorage.removeItem("intuit-trivia-admin"); return openLogin(); }
+  openAdmin();
 });
 $("#closeLogin").addEventListener("click", closeLogin);
 $("#loginModal").addEventListener("click", event => { if (event.target.id === "loginModal") closeLogin(); });
@@ -433,8 +469,10 @@ $("#closeAdmin").addEventListener("click", closeAdmin);
 $("#togglePassword").addEventListener("click", () => { $("#password").type = $("#password").type === "password" ? "text" : "password"; });
 $("#loginForm").addEventListener("submit", async event => {
   event.preventDefault();
-  if ($("#password").value !== ADMIN_PASSWORD) { $("#loginError").textContent = "La contraseña no es correcta."; return; }
-  sessionStorage.setItem("intuit-trivia-admin", ADMIN_PASSWORD);
+  const password = $("#password").value;
+  $("#loginError").textContent = "Comprobando…";
+  if (!(await authenticateAdmin(password))) { $("#loginError").textContent = "La contraseña no es correcta."; return; }
+  sessionStorage.setItem("intuit-trivia-admin", password);
   $("#password").value = "";
   closeLogin(); await loadAdminState(); openAdmin(); showToast("Bienvenida, Juana");
   setTimeout(startTour, 350);
@@ -538,6 +576,30 @@ $("#undoLast").addEventListener("click", async () => {
   if (!confirm(`¿Quitar el resultado de ${last.winner}?`)) return;
   last.winner = null; last.pointsAwarded = null; last.completedAt = null; last.status = "published"; state.activeGameId = last.id;
   await persist("Último resultado deshecho");
+});
+$("#changePasswordButton").addEventListener("click", () => {
+  const form = $("#passwordChangeForm");
+  form.hidden = !form.hidden;
+  $("#changePasswordButton").textContent = form.hidden ? "Cambiar la contraseña secreta" : "Mejor la cambio después";
+  $("#passwordChangeError").textContent = "";
+  if (!form.hidden) $("#currentAdminPassword").focus();
+});
+$("#passwordChangeForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const currentPassword = $("#currentAdminPassword").value;
+  const newPassword = $("#newAdminPassword").value;
+  const confirmation = $("#confirmAdminPassword").value;
+  const error = $("#passwordChangeError");
+  if (newPassword.length < 6) { error.textContent = "Usá al menos 6 caracteres para que Seba no la adivine en dos intentos."; return; }
+  if (newPassword !== confirmation) { error.textContent = "Las dos contraseñas nuevas no coinciden."; return; }
+  error.textContent = "Cambiando la cerradura…";
+  const result = await updateAdminPassword(currentPassword, newPassword);
+  if (!result.ok) { error.textContent = result.error; return; }
+  sessionStorage.setItem("intuit-trivia-admin", newPassword);
+  event.currentTarget.reset();
+  event.currentTarget.hidden = true;
+  $("#changePasswordButton").textContent = "Cambiar la contraseña secreta";
+  showToast("Contraseña cambiada · José y Seba quedaron afuera 😏");
 });
 $("#logoutButton").addEventListener("click", async () => { sessionStorage.removeItem("intuit-trivia-admin"); closeAdmin(); await loadState(); showToast("Sesión cerrada"); });
 

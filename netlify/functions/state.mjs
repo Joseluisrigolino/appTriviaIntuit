@@ -1,4 +1,5 @@
 import { getStore } from "@netlify/blobs";
+import { verifyAdminPassword } from "../lib/admin-auth.mjs";
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -11,8 +12,7 @@ export default async (request) => {
   if (request.method === "GET") {
     const state = await store.get("state", { type: "json", consistency: "strong" });
     const current = state || { version: 3, activeGameId: null, games: [], categories: [], updatedAt: null };
-    const expectedPassword = process.env.ADMIN_PASSWORD || "juanaadmin";
-    if (request.headers.get("x-admin-password") === expectedPassword) return json(current);
+    if (await verifyAdminPassword(request.headers.get("x-admin-password"))) return json(current);
     const active = current.games.find(game => game.id === current.activeGameId);
     const isActivePublic = active && ["published", "completed"].includes(active.status || (active.winner ? "completed" : "published"));
     const publicState = {
@@ -30,8 +30,7 @@ export default async (request) => {
   }
 
   if (request.method === "PUT") {
-    const expectedPassword = process.env.ADMIN_PASSWORD || "juanaadmin";
-    if (request.headers.get("x-admin-password") !== expectedPassword) return json({ error: "No autorizado" }, 401);
+    if (!(await verifyAdminPassword(request.headers.get("x-admin-password")))) return json({ error: "No autorizado" }, 401);
     try {
       const state = await request.json();
       if (!state || !Array.isArray(state.games) || JSON.stringify(state).length > 500_000) return json({ error: "Estado inválido" }, 400);
