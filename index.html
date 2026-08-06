@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#5046e5" />
+    <meta name="description" content="La trivia diaria del equipo de Intuit." />
+    <title>Intuit Trivia Club</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <header class="topbar shell">
+      <a class="brand" href="#inicio" aria-label="Intuit Trivia Club">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 120 72" role="img">
+            <path d="M13 51a23 23 0 0 1 46 0H13Z" />
+            <path d="M61 23h46a23 23 0 0 1-46 0Z" />
+          </svg>
+        </span>
+        <span><b>INTUIT</b><small>TRIVIA CLUB</small></span>
+      </a>
+      <nav class="nav-links" aria-label="Secciones">
+        <a href="#trivia">Trivia de hoy</a>
+        <a href="#ranking">Ranking</a>
+        <a href="#historial">Historial</a>
+      </nav>
+      <button class="button button-ghost" id="loginButton" type="button">
+        <span class="lock-icon">✦</span> Loguearse como Juana
+      </button>
+    </header>
+
+    <main id="inicio">
+      <section class="hero shell">
+        <div class="hero-copy reveal-in">
+          <div class="eyebrow"><span class="live-dot"></span> LA DAILY AHORA TIENE PREMIO</div>
+          <h1>Una pregunta.<br /><em>Veinte puntos.</em><br />Que gane el mejor.</h1>
+          <p>La trivia diaria del equipo. Pensá rápido, pedí pocas pistas y escalá hasta la cima del ranking.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#trivia">Ver la pregunta <span>↓</span></a>
+            <div class="host-chip">
+              <span class="host-avatar">JP</span>
+              <span><small>HOST OFICIAL</small><b>Juana Pandolfi</b></span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-visual reveal-in delay-1" aria-hidden="true">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="question-sphere"><span>?</span></div>
+          <div class="float-card card-points"><small>EN JUEGO</small><b>20</b><span>puntos</span></div>
+          <div class="float-card card-streak"><span>🔥</span><b>Daily streak</b><small>¿Quién sube hoy?</small></div>
+          <span class="spark spark-one">✦</span><span class="spark spark-two">✦</span>
+        </div>
+      </section>
+
+      <section class="game-section" id="trivia">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <span class="kicker">TRIVIA DEL DÍA</span>
+              <h2 id="gameDateTitle">Preparando la próxima pregunta…</h2>
+            </div>
+            <div class="points-pill"><small>VALE AHORA</small><strong id="currentPoints">20</strong><span>PTS</span></div>
+          </div>
+
+          <div class="game-layout">
+            <article class="question-card surface-card">
+              <div class="question-number">PREGUNTA <span>#<span id="questionNumber">—</span></span></div>
+              <h3 id="questionText">Juana todavía no publicó la pregunta de hoy.</h3>
+              <p id="questionCaption">Cuando esté lista, aparecerá acá para todo el equipo.</p>
+              <div class="answer-status" id="answerStatus"><span></span> Esperando la pregunta</div>
+            </article>
+
+            <aside class="clues-card surface-card">
+              <div class="card-title-row">
+                <div><span class="kicker">PISTAS</span><h3>¿Necesitan una ayuda?</h3></div>
+                <span class="clue-counter" id="clueCounter">0 / 0</span>
+              </div>
+              <div class="clues-list" id="cluesList"></div>
+              <div class="clue-empty" id="clueEmpty">
+                <span>◌</span>
+                <p>Todavía no hay pistas reveladas.</p>
+                <small>Cada pista usada reduce el premio.</small>
+              </div>
+              <div class="points-meter"><div id="pointsMeterFill"></div></div>
+              <div class="meter-labels"><span>Más pistas</span><b id="meterPoints">20 puntos disponibles</b></div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="ranking-section shell" id="ranking">
+        <div class="section-heading compact">
+          <div><span class="kicker">CAMPEONATO</span><h2>La carrera por la gloria</h2></div>
+          <p>El ranking se actualiza después de cada daily.</p>
+        </div>
+        <div class="ranking-grid">
+          <div class="leaderboard surface-card" id="leaderboard"></div>
+          <aside class="prize-card">
+            <div class="prize-glow"></div>
+            <span class="prize-icon">🏆</span>
+            <span class="kicker light">PREMIO FINAL</span>
+            <h3>La copa espera a una mente brillante.</h3>
+            <p>Sumá puntos cada día. La persona con mayor puntaje acumulado se lleva el premio.</p>
+            <div class="prize-stat"><span>PARTICIPANTES</span><b>09</b></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="history-section" id="historial">
+        <div class="shell">
+          <div class="section-heading compact">
+            <div><span class="kicker">MEMORIA TRIVIAL</span><h2>Últimas partidas</h2></div>
+          </div>
+          <div class="history-grid" id="historyGrid"></div>
+          <div class="empty-history surface-card" id="emptyHistory">Las partidas completadas van a aparecer acá.</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="shell footer-inner">
+        <div class="brand footer-brand"><span class="brand-mark mini"><svg viewBox="0 0 120 72"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M61 23h46a23 23 0 0 1-46 0Z"/></svg></span><span><b>INTUIT</b><small>TRIVIA CLUB</small></span></div>
+        <p>Hecho para pensar, reírse y competir un poquito.</p>
+      </div>
+    </footer>
+
+    <div class="modal-backdrop" id="loginModal" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <button class="modal-close" id="closeLogin" aria-label="Cerrar">×</button>
+        <div class="modal-icon">✦</div>
+        <span class="kicker">ACCESO DE HOST</span>
+        <h2 id="loginTitle">Hola, Juana</h2>
+        <p>Ingresá tu contraseña para preparar la trivia y cargar los puntos.</p>
+        <form id="loginForm">
+          <label for="password">Contraseña</label>
+          <div class="password-wrap"><input id="password" type="password" autocomplete="current-password" placeholder="••••••••••" required /><button id="togglePassword" type="button" aria-label="Mostrar contraseña">◉</button></div>
+          <p class="form-error" id="loginError"></p>
+          <button class="button button-primary full" type="submit">Entrar al panel</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="admin-drawer" id="adminDrawer" aria-hidden="true">
+      <div class="drawer-head">
+        <div><span class="kicker">MODO HOST</span><h2>Panel de Juana</h2></div>
+        <button class="modal-close" id="closeAdmin" aria-label="Cerrar panel">×</button>
+      </div>
+      <div class="admin-tabs" role="tablist">
+        <button class="active" data-tab="question" type="button">Pregunta</button>
+        <button data-tab="clues" type="button">Pistas</button>
+        <button data-tab="winner" type="button">Ganador</button>
+        <button data-tab="data" type="button">Datos</button>
+      </div>
+
+      <div class="admin-content">
+        <section class="tab-panel active" data-panel="question">
+          <label for="gameDate">Fecha de la trivia</label>
+          <input id="gameDate" type="date" />
+          <label for="adminQuestion">Pregunta del día</label>
+          <textarea id="adminQuestion" rows="5" placeholder="¿Qué producto cambió para siempre…?"></textarea>
+          <label for="adminCaption">Contexto opcional</label>
+          <input id="adminCaption" type="text" placeholder="Categoría, consigna o aclaración" />
+          <button class="button button-primary full" id="saveQuestion" type="button">Publicar pregunta</button>
+        </section>
+
+        <section class="tab-panel" data-panel="clues">
+          <div class="admin-note">Agregá todas las pistas antes de jugar. Cada pista revelada descontará el mismo porcentaje.</div>
+          <div id="adminClues"></div>
+          <button class="button button-soft full" id="addClue" type="button">+ Agregar una pista</button>
+          <button class="button button-primary full" id="saveClues" type="button">Guardar pistas</button>
+        </section>
+
+        <section class="tab-panel" data-panel="winner">
+          <div class="score-preview"><small>PUNTAJE ACTUAL</small><b id="adminPoints">20</b><span>puntos</span></div>
+          <label for="winnerSelect">¿Quién respondió correctamente?</label>
+          <select id="winnerSelect"><option value="">Seleccionar participante</option></select>
+          <div class="winner-summary" id="winnerSummary">El puntaje depende de cuántas pistas hayan sido reveladas.</div>
+          <button class="button button-primary full" id="awardWinner" type="button">Confirmar ganador y sumar puntos</button>
+        </section>
+
+        <section class="tab-panel" data-panel="data">
+          <div class="storage-status" id="storageStatus"><span></span><div><b>Comprobando guardado…</b><small></small></div></div>
+          <p class="data-copy">Descargá una copia de seguridad para conservar preguntas, pistas y puntajes.</p>
+          <button class="button button-soft full" id="exportCsv" type="button">Descargar puntajes CSV</button>
+          <button class="button button-soft full" id="exportJson" type="button">Descargar respaldo completo</button>
+          <label class="button button-outline full file-button">Restaurar respaldo JSON<input id="importJson" type="file" accept="application/json" /></label>
+          <button class="text-button danger" id="undoLast" type="button">Deshacer el último resultado</button>
+          <button class="text-button" id="logoutButton" type="button">Cerrar sesión de Juana</button>
+        </section>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+    <div class="confetti" id="confetti" aria-hidden="true"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
