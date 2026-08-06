@@ -19,6 +19,7 @@ const LOCAL_PASSWORD_KEY = "intuit-trivia-local-password";
 const API_URL = "/api/state";
 const AUTH_URL = "/api/auth";
 const REFRESH_INTERVAL = 4000;
+const APP_VERSION = globalThis.APP_VERSION || "2.1.dev";
 
 const defaultState = () => ({ version: 3, activeGameId: null, games: [], categories: [], updatedAt: null });
 let state = defaultState();
@@ -39,6 +40,8 @@ const avatarMarkup = name => PARTICIPANT_PHOTOS[name]
   : `<span class="avatar">${initials(name)}</span>`;
 const activeGame = () => state.games.find(game => game.id === state.activeGameId) || null;
 const isAdmin = () => Boolean(sessionStorage.getItem("intuit-trivia-admin"));
+
+$("#appVersion").textContent = `v${APP_VERSION}`;
 
 function normalizeState(raw) {
   if (!raw || !Array.isArray(raw.games)) return defaultState();
@@ -243,20 +246,30 @@ function renderRaceBoard() {
     cells[progress.position].push({ ...person, lap: progress.lap });
   });
   const coordinates = [
-    ...Array.from({ length: 7 }, (_, index) => [1, index + 1]),
-    ...Array.from({ length: 5 }, (_, index) => [index + 2, 7]),
-    ...Array.from({ length: 7 }, (_, index) => [7, 7 - index]),
-    ...Array.from({ length: 5 }, (_, index) => [6 - index, 1])
+    [29, 10, 0], [37.4, 10, 0], [45.8, 10, 0], [54.2, 10, 0], [62.6, 10, 0], [71, 10, 0],
+    [77, 18, 52], [83.5, 28, 52], [88.5, 39, 72],
+    [88.5, 51, 108], [83.5, 62, 128], [77, 72, 128],
+    [71, 82, 0], [62.6, 82, 0], [54.2, 82, 0], [45.8, 82, 0], [37.4, 82, 0], [29, 82, 0],
+    [23, 72, 52], [16.5, 62, 52], [11.5, 51, 72],
+    [11.5, 37, 108], [16.5, 27, 128], [23, 17.5, 128]
   ];
   const leader = people[0];
-  const leaderMarkup = leader?.points ? `<div class="board-leader">${avatarMarkup(leader.name)}<span><small>VA A LA CABEZA</small><b>${escapeHtml(leader.name)} · ${leader.points} pts</b></span></div>` : `<div class="board-leader"><span>🏁</span><b>Todos listos en la largada</b></div>`;
-  const center = `<div class="board-center"><span class="board-center-logo">♛</span><span class="kicker">CAMPEONATO</span><h3>Carrera<br />de mente</h3><p>Cada vuelta tiene 100 puntos. Las caras avanzan con el puntaje total y vuelven a largar en un nuevo nivel.</p>${leaderMarkup}</div>`;
-  const trackCells = coordinates.map(([row, column], index) => {
-    const tokens = cells[index].map(person => `<span class="board-token avatar-${avatarSlug(person.name)}" title="${escapeHtml(person.name)} · ${person.points} puntos"><img src="${PARTICIPANT_PHOTOS[person.name]}" alt="${escapeHtml(person.name)}" loading="lazy" />${person.lap > 1 ? `<i class="lap-badge">V${person.lap}</i>` : ""}</span>`).join("");
+  const trophy = `<svg viewBox="0 0 72 58" aria-hidden="true"><path class="trophy-cup" d="M24 6h24v10c0 11-5 18-12 21-7-3-12-10-12-21V6Z"/><path class="trophy-handle" d="M24 11h-9v6c0 7 4 12 11 13M48 11h9v6c0 7-4 12-11 13"/><path class="trophy-stem" d="M36 37v9m-10 6h20M30 46h12"/></svg>`;
+  const reachTrophy = `<svg class="reach-trophy" viewBox="0 0 94 60" aria-hidden="true"><path class="reach-hand" d="M2 54c5-10 10-17 17-20 4-2 8 0 9 4l4 14-9 3-4-10-7 12Z"/><path class="reach-hand" d="M92 54c-5-10-10-17-17-20-4-2-8 0-9 4l-4 14 9 3 4-10 7 12Z"/><path class="reach-cup" d="M35 4h24v10c0 11-5 18-12 21-7-3-12-10-12-21V4Z"/><path class="reach-cup-line" d="M35 9h-9v6c0 7 4 12 11 13M59 9h9v6c0 7-4 12-11 13M47 35v10m-10 7h20M40 45h14"/></svg>`;
+  const leaderMarkup = leader?.points
+    ? `<div class="board-leader">${avatarMarkup(leader.name)}<span><small>MÁS CERCA DE LA COPA</small><b>${escapeHtml(leader.name)} · ${leader.points} pts</b></span>${reachTrophy}</div>`
+    : `<div class="board-leader board-leader-empty"><span>🏁</span><b>Todos listos en la largada</b></div>`;
+  const center = `<div class="board-center"><span class="board-center-logo"><svg viewBox="0 0 120 72" aria-hidden="true"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M61 23h46a23 23 0 0 1-46 0Z"/><path d="M61 26h-8v5c0 8 5 14 13 16l2-5c-5-1-8-5-8-11h1v-5Zm46 0h8v5c0 8-5 14-13 16l-2-5c5-1 8-5 8-11h-1v-5ZM81 44h6v11h10v6H71v-6h10V44Z"/></svg></span><span class="kicker">CAMPEONATO</span><h3>Carrera<br />de mente</h3><p>Cada vuelta tiene 100 puntos. La copa sigue en juego y la mente que más suma es la que más cerca está de alcanzarla.</p>${leaderMarkup}</div>`;
+  const tones = ["deep", "purple", "violet", "lavender", "purple", "lime", "purple", "violet", "lavender", "purple", "violet", "coral", "deep", "purple", "violet", "lavender", "purple", "lime", "purple", "violet", "lavender", "purple", "violet", "purple"];
+  const trackCells = coordinates.map(([x, y, rotation], index) => {
+    const tokens = cells[index].map(person => {
+      const isLeader = Boolean(leader?.points && person.name === leader.name);
+      return `<span class="board-token avatar-${avatarSlug(person.name)}${isLeader ? " board-token-leader" : ""}" title="${escapeHtml(person.name)} · ${person.points} puntos"><img src="${PARTICIPANT_PHOTOS[person.name]}" alt="${escapeHtml(person.name)}" loading="lazy" />${isLeader ? `<i class="leader-mini-cup">${trophy}</i>` : ""}${person.lap > 1 ? `<i class="lap-badge">V${person.lap}</i>` : ""}</span>`;
+    }).join("");
     const value = Math.round(index / 23 * 100);
-    return `<div class="board-cell ${index === 0 ? "start-cell" : ""} ${index === 23 ? "finish-cell" : ""}" style="grid-row:${row};grid-column:${column}">${index === 0 ? `<span class="cell-flag">SALIDA</span>` : index === 23 ? `<span class="cell-flag">META</span>` : ""}<div class="token-stack">${tokens}</div><span class="cell-points">${value}</span></div>`;
+    return `<div class="board-cell track-${tones[index]} ${index === 0 ? "start-cell" : ""} ${index === 23 ? "finish-cell" : ""} ${cells[index].length > 4 ? "crowded" : ""}" style="--x:${x};--y:${y};--r:${rotation}deg">${index === 0 ? `<span class="cell-flag">SALIDA</span>` : index === 23 ? `<span class="cell-flag">META</span><i class="board-goal">${trophy}</i>` : ""}<div class="token-stack">${tokens}</div><span class="cell-points">${value}</span></div>`;
   }).join("");
-  $("#raceBoard").innerHTML = `<div class="race-track">${trackCells}${center}</div>`;
+  $("#raceBoard").innerHTML = `<div class="race-track"><div class="track-aura"></div>${trackCells}${center}</div>`;
 }
 
 function renderLeaderboard() {

@@ -1,9 +1,10 @@
 {
   "name": "intuit-trivia-club",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/generate-version.mjs",
     "dev": "python -m http.server 4173",
     "check": "node --check app.js && node --check netlify/functions/state.mjs"
   },

@@ -30,6 +30,7 @@
         <a href="#trivia">Trivia de hoy</a>
         <a href="#ranking">Ranking</a>
         <a href="#historial">Historial</a>
+        <a href="#bases">Bases</a>
       </nav>
       <button class="button button-ghost" id="loginButton" type="button">
         <span class="lock-icon">✦</span> Loguearse como Juana
@@ -139,12 +140,33 @@
           <div class="empty-history surface-card" id="emptyHistory">Las partidas completadas van a aparecer acá.</div>
         </div>
       </section>
+
+      <section class="rules-section" id="bases">
+        <div class="shell">
+          <div class="rules-heading">
+            <div>
+              <span class="kicker">LAS REGLAS DEL JUEGO</span>
+              <h2>Bases y condiciones</h2>
+            </div>
+            <p>Competimos en serio, pero siempre con la mejor onda.</p>
+          </div>
+          <ol class="rules-grid">
+            <li class="rule-card"><span>01</span><div><b>Días de juego</b><p>Jugamos lunes, martes y jueves. Algún día puede variar por ausencias.</p></div></li>
+            <li class="rule-card"><span>02</span><div><b>Hasta diciembre</b><p>El campeonato termina en diciembre. Hay tiempo para remontar, pero no para dormirse.</p></div></li>
+            <li class="rule-card"><span>03</span><div><b>Si alguien está ausente</b><p>Decidimos en conjunto si movemos la fecha de la jugada o directamente no jugamos.</p></div></li>
+            <li class="rule-card"><span>04</span><div><b>Desempate</b><p>En caso de empate, se juega una pregunta de cada categoría. Gana quien obtenga el mayor puntaje.</p></div></li>
+            <li class="rule-card prize-rule"><span>05</span><div><b>El gran premio</b><p>El premio es el juego de mesa Carrera de Mente.</p></div><i aria-hidden="true">🏆</i></li>
+            <li class="rule-card final-rule"><span>06</span><div><b>Última y más importante</b><p>¡Muchos éxitos! A darlo todo y a ejercitar esa mente.</p></div></li>
+          </ol>
+        </div>
+      </section>
     </main>
 
     <footer>
       <div class="shell footer-inner">
         <div class="brand footer-brand"><span class="brand-mark mini"><svg viewBox="0 0 120 72"><path class="logo-left" d="M13 51a23 23 0 0 1 46 0H13Z"/><path class="logo-bowl" d="M61 23h46a23 23 0 0 1-46 0Z"/><path class="logo-trophy-details" d="M61 26h-8v5c0 8 5 14 13 16l2-5c-5-1-8-5-8-11h1v-5Zm46 0h8v5c0 8-5 14-13 16l-2-5c5-1 8-5 8-11h-1v-5ZM81 44h6v11h10v6H71v-6h10V44Z"/></svg></span><span><b>INTUIT</b><small>TRIVIA CLUB</small></span></div>
         <p>Hecho para pensar, reírse y competir un poquito.</p>
+        <div class="footer-meta"><a href="#bases">Bases y condiciones</a><span id="appVersion">v2.x</span></div>
       </div>
     </footer>
 
@@ -292,6 +314,7 @@
 
     <div class="toast" id="toast" role="status"></div>
     <div class="confetti" id="confetti" aria-hidden="true"></div>
+    <script src="version.js"></script>
     <script type="module" src="app.js"></script>
   </body>
 </html>
