@@ -1,5 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import { verifyAdminPassword } from "../lib/admin-auth.mjs";
+import { createInitialState, DATASET_REVISION } from "../../data/initial-state.js";
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -10,8 +11,10 @@ export default async (request) => {
   const store = getStore("intuit-trivia");
 
   if (request.method === "GET") {
-    const state = await store.get("state", { type: "json", consistency: "strong" });
-    const current = state || { version: 3, activeGameId: null, games: [], categories: [], updatedAt: null };
+    const storedState = await store.get("state", { type: "json", consistency: "strong" });
+    const needsInitialMigration = !storedState || Number(storedState.datasetRevision || 0) < DATASET_REVISION;
+    const current = needsInitialMigration ? createInitialState() : storedState;
+    if (needsInitialMigration) await store.setJSON("state", current);
     if (await verifyAdminPassword(request.headers.get("x-admin-password"))) return json(current);
     const active = current.games.find(game => game.id === current.activeGameId);
     const isActivePublic = active && ["published", "completed"].includes(active.status || (active.winner ? "completed" : "published"));
@@ -35,6 +38,7 @@ export default async (request) => {
     try {
       const state = await request.json();
       if (!state || !Array.isArray(state.games) || JSON.stringify(state).length > 500_000) return json({ error: "Estado inválido" }, 400);
+      state.datasetRevision = DATASET_REVISION;
       await store.setJSON("state", state);
       return json({ ok: true });
     } catch {

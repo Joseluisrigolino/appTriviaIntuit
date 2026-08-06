@@ -1,3 +1,5 @@
+import { createInitialState, DATASET_REVISION } from "./data/initial-state.js";
+
 const PARTICIPANTS = [
   "Daniel Gonzalez", "Jose Rigolino", "Juan Pereyra", "Julieta Ramos",
   "Julio Costas", "Marisa Cinque", "Marisol Galain", "Sebastian Romano", "Thiago Santero"
@@ -14,14 +16,14 @@ const PARTICIPANT_PHOTOS = {
   "Thiago Santero": "assets/participants/thiago-santero.png"
 };
 const INITIAL_ADMIN_PASSWORD = "juanaadmin";
-const STORAGE_KEY = "intuit-trivia-state-v2";
+const STORAGE_KEY = "intuit-trivia-state-v3";
 const LOCAL_PASSWORD_KEY = "intuit-trivia-local-password";
 const API_URL = "/api/state";
 const AUTH_URL = "/api/auth";
 const REFRESH_INTERVAL = 4000;
 const APP_VERSION = globalThis.APP_VERSION || "2.1.dev";
 
-const defaultState = () => ({ version: 3, activeGameId: null, games: [], categories: [], updatedAt: null });
+const defaultState = createInitialState;
 let state = defaultState();
 let storageMode = "local";
 let toastTimer;
@@ -68,6 +70,7 @@ function normalizeState(raw) {
   games = games.map(game => ({ ...game, categoryId: game.categoryId || categories.find(category => category.name.toLowerCase() === game.category?.toLowerCase())?.id || "" }));
   return {
     version: 3,
+    datasetRevision: Math.max(DATASET_REVISION, Number(raw.datasetRevision) || 0),
     activeGameId: raw.activeGameId || null,
     updatedAt: raw.updatedAt || null,
     games,
