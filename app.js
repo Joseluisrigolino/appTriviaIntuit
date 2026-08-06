@@ -2,6 +2,17 @@ const PARTICIPANTS = [
   "Daniel Gonzalez", "Jose Rigolino", "Juan Pereyra", "Julieta Ramos",
   "Julio Costas", "Marisa Cinque", "Marisol Galain", "Sebastian Romano", "Thiago Santero"
 ];
+const PARTICIPANT_PHOTOS = {
+  "Daniel Gonzalez": "assets/participants/daniel-gonzalez.png",
+  "Jose Rigolino": "assets/participants/jose-rigolino.png",
+  "Juan Pereyra": "assets/participants/juan-pereyra.png",
+  "Julieta Ramos": "assets/participants/julieta-ramos.png",
+  "Julio Costas": "assets/participants/julio-costas.png",
+  "Marisa Cinque": "assets/participants/marisa-cinque.png",
+  "Marisol Galain": "assets/participants/marisol-galain.png",
+  "Sebastian Romano": "assets/participants/sebastian-romano.png",
+  "Thiago Santero": "assets/participants/thiago-santero.png"
+};
 const INITIAL_ADMIN_PASSWORD = "juanaadmin";
 const STORAGE_KEY = "intuit-trivia-state-v2";
 const LOCAL_PASSWORD_KEY = "intuit-trivia-local-password";
@@ -22,6 +33,10 @@ const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, char => ({ 
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const formatDate = (date, long = true) => new Intl.DateTimeFormat("es-AR", long ? { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" } : { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
 const initials = name => name.split(" ").map(part => part[0]).slice(0, 2).join("");
+const avatarSlug = name => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-");
+const avatarMarkup = name => PARTICIPANT_PHOTOS[name]
+  ? `<span class="avatar avatar-${avatarSlug(name)}"><img src="${PARTICIPANT_PHOTOS[name]}" alt="" loading="lazy" /></span>`
+  : `<span class="avatar">${initials(name)}</span>`;
 const activeGame = () => state.games.find(game => game.id === state.activeGameId) || null;
 const isAdmin = () => Boolean(sessionStorage.getItem("intuit-trivia-admin"));
 
@@ -212,7 +227,7 @@ function renderLeaderboard() {
   $("#leaderboard").innerHTML = scoresByParticipant().map((person, index) => `
     <div class="rank-row">
       <span class="rank-position">${index === 0 ? "♛" : String(index + 1).padStart(2, "0")}</span>
-      <div class="rank-person"><span class="avatar">${initials(person.name)}</span><span>${escapeHtml(person.name)}</span></div>
+      <div class="rank-person">${avatarMarkup(person.name)}<span>${escapeHtml(person.name)}</span></div>
       <div class="rank-meta"><small>VICTORIAS</small><b>${person.wins}</b></div>
       <div class="rank-points">${person.points} <small>PTS</small></div>
     </div>`).join("");
@@ -225,7 +240,7 @@ function renderHistory() {
       <div class="history-date"><span>${formatDate(game.date, false).toUpperCase()}</span><span>${game.clues.filter(c => c.revealed).length} PISTAS</span></div>
       <span class="history-category">${escapeHtml(game.category || "Categoría libre")}${categoryBonus(game) ? ` · +${categoryBonus(game)}%` : ""}</span>
       <h3>${escapeHtml(game.question)}</h3>
-      <div class="history-winner"><span class="avatar">${initials(game.winner)}</span><span>${escapeHtml(game.winner)}</span><b>+${game.pointsAwarded} pts</b></div>
+      <div class="history-winner">${avatarMarkup(game.winner)}<span>${escapeHtml(game.winner)}</span><b>+${game.pointsAwarded} pts</b></div>
     </article>`).join("");
   $("#emptyHistory").style.display = completed.length ? "none" : "block";
 }
@@ -413,7 +428,8 @@ const TOUR_STEPS = [
   { tab: "question", target: "#saveQuestion", title: "2. Guardá un borrador privado", text: "Escribí la pregunta y guardala. El equipo todavía no verá nada; recién entonces se habilita la carga de pistas." },
   { tab: "clues", target: ".publish-box", title: "3. Ordená y publicá", text: "Cargá las pistas de la más difícil a la más fácil. Cuando esté todo listo, este botón publica únicamente la pregunta." },
   { tab: "live", target: "#nextClueCard", title: "4. Leé las pistas en la daily", text: "Mostrá la siguiente pista sólo en tu panel y leela en voz alta. Los participantes verán el contador, nunca el texto, para que nadie tenga ventaja." },
-  { tab: "winner", target: "#awardWinner", title: "5. Cerrá con el ganador", text: "Elegí quién acertó. Calculamos pistas y bonus de categoría, y actualizamos automáticamente el ranking de todo el equipo." }
+  { tab: "winner", target: "#awardWinner", title: "5. Cerrá con el ganador", text: "Elegí quién acertó. Calculamos pistas y bonus de categoría, y actualizamos automáticamente el ranking de todo el equipo." },
+  { tab: "data", target: ".password-prank-card", title: "Último detalle: cambiá tu contraseña", text: "José y Seba ya conocen la clave inicial. Antes de estrenar la trivia, cambiala desde acá para que nadie se haga el vivo tocando preguntas o puntos." }
 ];
 
 function startTour() {
