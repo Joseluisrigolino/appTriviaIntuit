@@ -208,16 +208,29 @@
 
       <div class="admin-content">
         <section class="tab-panel active" data-panel="question">
+          <div class="new-question-notice" id="newQuestionNotice" hidden>
+            <span>✓</span><div><b>La partida anterior ya terminó</b><p>Podés dejar la próxima pregunta preparada ahora mismo, aunque sea para la misma fecha.</p></div>
+          </div>
           <label for="gameDate">Fecha de la trivia</label>
           <input id="gameDate" type="date" />
-          <label for="adminQuestion">Pregunta del día</label>
+          <label for="adminQuestion">Nueva pregunta</label>
           <textarea id="adminQuestion" rows="5" placeholder="¿Qué producto cambió para siempre…?"></textarea>
           <label for="adminAnswer">Respuesta correcta</label>
           <input id="adminAnswer" type="text" placeholder="La respuesta que quedará en el historial" />
           <label for="adminCaption">Contexto opcional</label>
           <input id="adminCaption" type="text" placeholder="Consigna o aclaración" />
           <div class="category-config" id="categoryConfig">
-            <div><label for="adminCategory">Categoría</label><div class="select-wrap"><select id="adminCategory"><option value="">Elegí una categoría</option></select><span>⌄</span></div></div>
+            <div>
+              <label id="adminCategoryLabel">Categoría</label>
+              <div class="custom-select" data-custom-select>
+                <select class="custom-select-native" id="adminCategory" tabindex="-1" aria-hidden="true"><option value="">Elegí una categoría</option></select>
+                <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="adminCategoryLabel adminCategoryValue">
+                  <span class="custom-select-value" id="adminCategoryValue">Elegí una categoría</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                </button>
+                <div class="custom-select-menu" role="listbox" aria-labelledby="adminCategoryLabel"></div>
+              </div>
+            </div>
             <button class="mini-link" id="openCategories" type="button">+ Administrar categorías</button>
           </div>
           <p class="category-help" id="categoryHelp">Cargá las categorías una sola vez y después elegilas desde acá.</p>
@@ -257,8 +270,15 @@
 
         <section class="tab-panel" data-panel="winner">
           <div class="score-preview"><small>PUNTAJE ACTUAL</small><b id="adminPoints">20</b><span>puntos</span><em id="adminBonusSummary"></em></div>
-          <label for="winnerSelect">¿Quién respondió correctamente?</label>
-          <select id="winnerSelect"><option value="">Seleccionar participante</option><option value="__unanswered__">Nadie respondió</option></select>
+          <label id="winnerSelectLabel">¿Quién respondió correctamente?</label>
+          <div class="custom-select custom-select-participants" data-custom-select>
+            <select class="custom-select-native" id="winnerSelect" tabindex="-1" aria-hidden="true"><option value="">Seleccionar participante</option><option value="__unanswered__">Nadie respondió</option></select>
+            <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="winnerSelectLabel winnerSelectValue">
+              <span class="custom-select-value" id="winnerSelectValue">Seleccionar resultado</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+            </button>
+            <div class="custom-select-menu" role="listbox" aria-labelledby="winnerSelectLabel"></div>
+          </div>
           <div class="winner-summary" id="winnerSummary">El puntaje depende de cuántas pistas hayan sido reveladas.</div>
           <button class="button button-primary full" id="awardWinner" type="button">Confirmar ganador y sumar puntos</button>
         </section>

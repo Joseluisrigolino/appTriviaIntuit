@@ -45,6 +45,92 @@ const isAdmin = () => Boolean(sessionStorage.getItem("intuit-trivia-admin"));
 
 $("#appVersion").textContent = `v${APP_VERSION}`;
 
+function customSelectOptionMarkup(select, option) {
+  const label = escapeHtml(option.textContent.trim());
+  if (!option.value) return `<span class="custom-option-icon placeholder-icon">✦</span><span class="custom-option-copy"><b>${label}</b><small>Elegí una opción</small></span>`;
+  if (select.id === "winnerSelect") {
+    if (option.value === "__unanswered__") return `<span class="custom-option-icon unanswered-icon">—</span><span class="custom-option-copy"><b>Nadie respondió</b><small>Cerrar la pregunta sin ganador</small></span><em>0 pts</em>`;
+    const photo = PARTICIPANT_PHOTOS[option.value];
+    return `<span class="custom-option-avatar avatar-${avatarSlug(option.value)}"><img src="${photo}" alt="" /></span><span class="custom-option-copy"><b>${label}</b><small>Participante</small></span>`;
+  }
+  const category = state.categories.find(item => item.id === option.value);
+  return `<span class="custom-option-icon">${escapeHtml(category?.name?.[0]?.toUpperCase() || "✦")}</span><span class="custom-option-copy"><b>${escapeHtml(category?.name || option.textContent)}</b><small>Categoría de la trivia</small></span><em>+${category?.bonusPercent || 0}%</em>`;
+}
+
+function closeCustomSelect(root) {
+  root.classList.remove("open");
+  root.querySelector(".custom-select-trigger")?.setAttribute("aria-expanded", "false");
+}
+
+function syncCustomSelect(select) {
+  const root = select.closest("[data-custom-select]");
+  if (!root) return;
+  const trigger = root.querySelector(".custom-select-trigger");
+  const value = root.querySelector(".custom-select-value");
+  const menu = root.querySelector(".custom-select-menu");
+  const selected = select.selectedOptions[0] || select.options[0];
+  value.innerHTML = selected ? customSelectOptionMarkup(select, selected) : "";
+  value.classList.toggle("is-placeholder", !select.value);
+  trigger.disabled = select.disabled;
+  root.classList.toggle("disabled", select.disabled);
+  if (select.disabled) closeCustomSelect(root);
+  menu.innerHTML = [...select.options].map((option, index) => `
+    <button class="custom-select-option${option.selected ? " selected" : ""}" type="button" role="option" aria-selected="${option.selected}" data-option-index="${index}" ${option.disabled ? "disabled" : ""}>
+      ${customSelectOptionMarkup(select, option)}<span class="custom-option-check">✓</span>
+    </button>`).join("");
+  menu.querySelectorAll(".custom-select-option").forEach(button => button.addEventListener("click", event => {
+    event.stopPropagation();
+    const option = select.options[Number(button.dataset.optionIndex)];
+    if (!option || option.disabled) return;
+    select.value = option.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    syncCustomSelect(select);
+    closeCustomSelect(root);
+    trigger.focus();
+  }));
+}
+
+function syncCustomSelects() {
+  $$(".custom-select-native").forEach(syncCustomSelect);
+}
+
+function initCustomSelects() {
+  $$("[data-custom-select]").forEach(root => {
+    const select = root.querySelector("select");
+    const trigger = root.querySelector(".custom-select-trigger");
+    trigger.addEventListener("click", event => {
+      event.stopPropagation();
+      if (select.disabled) return;
+      const shouldOpen = !root.classList.contains("open");
+      $$('[data-custom-select].open').forEach(closeCustomSelect);
+      if (shouldOpen) {
+        root.classList.add("open");
+        trigger.setAttribute("aria-expanded", "true");
+        root.querySelector('.custom-select-option[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+      }
+    });
+    trigger.addEventListener("keydown", event => {
+      if (!["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key) || select.disabled) return;
+      event.preventDefault();
+      if (!root.classList.contains("open")) trigger.click();
+      const options = [...root.querySelectorAll(".custom-select-option:not(:disabled)")];
+      (root.querySelector('.custom-select-option[aria-selected="true"]') || options[0])?.focus();
+    });
+    root.querySelector(".custom-select-menu").addEventListener("keydown", event => {
+      const options = [...root.querySelectorAll(".custom-select-option:not(:disabled)")];
+      const current = options.indexOf(document.activeElement);
+      if (event.key === "Escape") { event.preventDefault(); closeCustomSelect(root); trigger.focus(); }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        options[(current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length]?.focus();
+      }
+    });
+    select.addEventListener("change", () => syncCustomSelect(select));
+    syncCustomSelect(select);
+  });
+  document.addEventListener("click", () => $$('[data-custom-select].open').forEach(closeCustomSelect));
+}
+
 function normalizeState(raw) {
   if (!raw || !Array.isArray(raw.games)) return defaultState();
   let games = raw.games.map(game => ({
@@ -307,37 +393,42 @@ function flowStep(game) {
 
 function renderAdmin() {
   const game = activeGame();
-  const locked = game?.status === "published" || game?.status === "completed";
+  const previousCompleted = game?.status === "completed";
+  const editableGame = previousCompleted ? null : game;
+  const locked = editableGame?.status === "published";
   renderCategoryOptions();
-  $("#gameDate").value = game?.date || today();
-  $("#adminQuestion").value = game?.question || "";
-  $("#adminAnswer").value = game?.answer || "";
-  $("#adminCaption").value = game?.caption || "";
-  $("#adminCategory").value = game?.categoryId || state.categories.find(category => category.name.toLowerCase() === game?.category?.toLowerCase())?.id || "";
+  $("#newQuestionNotice").hidden = !previousCompleted;
+  $("#gameDate").value = editableGame?.date || today();
+  $("#adminQuestion").value = editableGame?.question || "";
+  $("#adminAnswer").value = editableGame?.answer || "";
+  $("#adminCaption").value = editableGame?.caption || "";
+  $("#adminCategory").value = editableGame?.categoryId || state.categories.find(category => category.name.toLowerCase() === editableGame?.category?.toLowerCase())?.id || "";
   $("#gameDate").disabled = locked;
   $("#adminQuestion").disabled = locked;
   $("#adminAnswer").disabled = locked;
   $("#adminCaption").disabled = locked;
   $("#adminCategory").disabled = locked;
   $("#saveQuestion").disabled = locked;
-  $("#saveQuestion").textContent = locked ? "Pregunta ya publicada" : "Guardar pregunta y continuar";
+  $("#saveQuestion").textContent = locked ? "Pregunta ya publicada" : previousCompleted ? "Guardar nueva pregunta y continuar" : "Guardar pregunta y continuar";
   $("#adminPoints").textContent = calculatePoints(game);
   $("#adminBonusSummary").textContent = categoryBonus(game) ? `+${categoryBonus(game)}% ${game?.category || "extra"}` : "Sin extra";
   $("#winnerSelect").innerHTML = `<option value="">Seleccionar resultado</option><option value="__unanswered__" ${game?.unanswered ? "selected" : ""}>Nadie respondió · 0 puntos</option>${PARTICIPANTS.map(name => `<option value="${escapeHtml(name)}" ${game?.winner === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
+  $("#winnerSelect").disabled = game?.status !== "published";
   $("#awardWinner").disabled = game?.status !== "published";
   $("#awardWinner").textContent = game?.status === "completed" ? (game.unanswered ? "Cerrada sin respuesta" : `Resultado cargado: ${game.winner}`) : "Confirmar resultado";
   $("#winnerSummary").textContent = game ? `${game.clues.filter(c => c.revealed).length} de ${game.clues.length} pistas usadas${categoryBonus(game) ? ` · bonus de categoría +${categoryBonus(game)}% incluido` : ""}.` : "Primero prepará y publicá una pregunta.";
-  $("#addClue").disabled = !game || locked;
-  $("#saveClues").disabled = !game || locked;
-  $("#publishGame").disabled = game?.status !== "ready" || !game.clues.length;
-  renderAdminClues(game?.clues || [], locked);
+  $("#addClue").disabled = !editableGame || locked;
+  $("#saveClues").disabled = !editableGame || locked;
+  $("#publishGame").disabled = editableGame?.status !== "ready" || !editableGame.clues.length;
+  renderAdminClues(editableGame?.clues || [], locked);
   renderLivePanel(game);
   renderCategoryLibrary();
   updateCategoryHelp();
+  syncCustomSelects();
 
   const allowed = {
     question: true,
-    clues: Boolean(game),
+    clues: Boolean(editableGame),
     live: game?.status === "published" || game?.status === "completed",
     winner: game?.status === "published" || game?.status === "completed",
     categories: true,
@@ -345,10 +436,10 @@ function renderAdmin() {
   };
   $$(".admin-tabs button").forEach(button => { button.disabled = !allowed[button.dataset.tab]; });
   const order = ["question", "clues", "live", "winner"];
-  const currentIndex = order.indexOf(flowStep(game));
+  const currentIndex = order.indexOf(flowStep(editableGame));
   $$("#hostProgress [data-step]").forEach((element, index) => {
     element.classList.toggle("active", index === currentIndex);
-    element.classList.toggle("done", index < currentIndex || game?.status === "completed");
+    element.classList.toggle("done", index < currentIndex);
   });
 }
 
@@ -470,7 +561,10 @@ function setAdminTab(name, force = false) {
   $$(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.dataset.panel === name));
 }
 
-function recommendedTab() { return flowStep(activeGame()); }
+function recommendedTab() {
+  const game = activeGame();
+  return game?.status === "completed" ? "question" : flowStep(game);
+}
 function openAdmin() { $("#adminDrawer").classList.add("open"); $("#adminDrawer").setAttribute("aria-hidden", "false"); setAdminTab(recommendedTab()); }
 function closeAdmin() { endTour(false); $("#adminDrawer").classList.remove("open"); $("#adminDrawer").setAttribute("aria-hidden", "true"); }
 function openLogin() { $("#loginModal").classList.add("open"); $("#loginModal").setAttribute("aria-hidden", "false"); setTimeout(() => $("#password").focus(), 100); }
@@ -707,5 +801,6 @@ $$('[data-ranking-view]').forEach(button => button.addEventListener("click", () 
   $$('[data-ranking-view]').forEach(item => item.classList.toggle("active", item === button));
   $$('[data-ranking-panel]').forEach(panel => panel.classList.toggle("active", panel.dataset.rankingPanel === button.dataset.rankingView));
 }));
+initCustomSelects();
 loadState();
 setInterval(refreshPublicState, REFRESH_INTERVAL);
