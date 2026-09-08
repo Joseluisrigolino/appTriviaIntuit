@@ -1,8 +1,11 @@
 export const DATASET_REVISION = 1;
 
 const INITIAL_STATE = {
-  version: 3,
+  version: 4,
   datasetRevision: DATASET_REVISION,
+  settings: {
+    maxWinners: 2
+  },
   activeGameId: "2026-08-06-1786040111487",
   updatedAt: "2026-08-06T18:16:30.671Z",
   games: [
@@ -23,8 +26,11 @@ const INITIAL_STATE = {
       ],
       status: "completed",
       winner: "Sebastian Romano",
+      winners: ["Sebastian Romano"],
       unanswered: false,
       pointsAwarded: 20,
+      winnerAwards: [{ name: "Sebastian Romano", points: 20 }],
+      pointsPerWinner: 20,
       completedAt: "2026-08-06T18:16:30.671Z",
       publishedAt: "2026-08-06T18:15:39.290Z"
     }

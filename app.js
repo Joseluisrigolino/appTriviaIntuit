@@ -21,7 +21,7 @@ const LOCAL_PASSWORD_KEY = "intuit-trivia-local-password";
 const API_URL = "/api/state";
 const AUTH_URL = "/api/auth";
 const REFRESH_INTERVAL = 4000;
-const APP_VERSION = globalThis.APP_VERSION || "2.1.dev";
+const APP_VERSION = globalThis.APP_VERSION || "2.3.dev";
 
 const defaultState = createInitialState;
 let state = defaultState();
@@ -42,6 +42,24 @@ const avatarMarkup = name => PARTICIPANT_PHOTOS[name]
   : `<span class="avatar">${initials(name)}</span>`;
 const activeGame = () => state.games.find(game => game.id === state.activeGameId) || null;
 const isAdmin = () => Boolean(sessionStorage.getItem("intuit-trivia-admin"));
+const maxWinners = () => Math.max(1, Math.min(PARTICIPANTS.length, Number(state.settings?.maxWinners) || 2));
+const gameWinners = game => [...new Set((Array.isArray(game?.winners) ? game.winners : game?.winner ? [game.winner] : []).filter(name => PARTICIPANTS.includes(name)))];
+const formatPoints = points => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 }).format(Number(points) || 0);
+const formatNames = names => names.length < 2 ? names[0] || "" : `${names.slice(0, -1).join(", ")} y ${names.at(-1)}`;
+
+function splitAward(total, winners) {
+  if (!winners.length) return [];
+  const totalCents = Math.round((Number(total) || 0) * 100);
+  const baseCents = Math.floor(totalCents / winners.length);
+  const remainder = totalCents - baseCents * winners.length;
+  return winners.map((name, index) => ({ name, points: (baseCents + (index < remainder ? 1 : 0)) / 100 }));
+}
+
+function gameAwards(game) {
+  const winners = gameWinners(game);
+  const stored = new Map((Array.isArray(game?.winnerAwards) ? game.winnerAwards : []).filter(award => winners.includes(award?.name) && Number.isFinite(Number(award?.points))).map(award => [award.name, Number(award.points)]));
+  return stored.size === winners.length ? winners.map(name => ({ name, points: stored.get(name) })) : splitAward(game?.pointsAwarded, winners);
+}
 
 $("#appVersion").textContent = `v${APP_VERSION}`;
 
@@ -57,6 +75,19 @@ function customSelectOptionMarkup(select, option) {
   return `<span class="custom-option-icon">${escapeHtml(category?.name?.[0]?.toUpperCase() || "✦")}</span><span class="custom-option-copy"><b>${escapeHtml(category?.name || option.textContent)}</b><small>Categoría de la trivia</small></span><em>+${category?.bonusPercent || 0}%</em>`;
 }
 
+function customSelectValueMarkup(select) {
+  if (!select.multiple) {
+    const selected = select.selectedOptions[0] || select.options[0];
+    return selected ? customSelectOptionMarkup(select, selected) : "";
+  }
+  const selected = [...select.selectedOptions].filter(option => option.value);
+  if (!selected.length) return `<span class="custom-option-icon placeholder-icon">✦</span><span class="custom-option-copy"><b>Seleccionar resultado</b><small>Podés elegir hasta ${maxWinners()} participantes</small></span>`;
+  if (selected.some(option => option.value === "__unanswered__")) return customSelectOptionMarkup(select, selected.find(option => option.value === "__unanswered__"));
+  const names = selected.map(option => option.value);
+  const avatars = names.map(name => `<span class="selected-mini-avatar avatar-${avatarSlug(name)}"><img src="${PARTICIPANT_PHOTOS[name]}" alt="" /></span>`).join("");
+  return `<span class="selected-avatar-stack">${avatars}</span><span class="custom-option-copy"><b>${names.length} ${names.length === 1 ? "ganador seleccionado" : "ganadores seleccionados"}</b><small>${escapeHtml(formatNames(names))} · puntaje compartido</small></span>`;
+}
+
 function closeCustomSelect(root) {
   root.classList.remove("open");
   root.querySelector(".custom-select-trigger")?.setAttribute("aria-expanded", "false");
@@ -68,26 +99,49 @@ function syncCustomSelect(select) {
   const trigger = root.querySelector(".custom-select-trigger");
   const value = root.querySelector(".custom-select-value");
   const menu = root.querySelector(".custom-select-menu");
-  const selected = select.selectedOptions[0] || select.options[0];
-  value.innerHTML = selected ? customSelectOptionMarkup(select, selected) : "";
-  value.classList.toggle("is-placeholder", !select.value);
+  const selectedOptions = [...select.selectedOptions].filter(option => option.value);
+  const selectedParticipants = selectedOptions.filter(option => option.value !== "__unanswered__");
+  const isMulti = select.multiple;
+  const limitReached = isMulti && selectedParticipants.length >= maxWinners();
+  value.innerHTML = customSelectValueMarkup(select);
+  value.classList.toggle("is-placeholder", !selectedOptions.length);
   trigger.disabled = select.disabled;
   root.classList.toggle("disabled", select.disabled);
   if (select.disabled) closeCustomSelect(root);
-  menu.innerHTML = [...select.options].map((option, index) => `
-    <button class="custom-select-option${option.selected ? " selected" : ""}" type="button" role="option" aria-selected="${option.selected}" data-option-index="${index}" ${option.disabled ? "disabled" : ""}>
+  const options = [...select.options].map((option, index) => ({ option, index })).filter(({ option }) => !isMulti || option.value);
+  const game = activeGame();
+  const previewAwards = splitAward(calculatePoints(game), selectedParticipants.map(option => option.value));
+  menu.innerHTML = `${isMulti ? `<div class="multi-select-head"><span>Elegí hasta <b>${maxWinners()}</b></span><strong>${selectedParticipants.length} / ${maxWinners()}</strong></div>` : ""}${options.map(({ option, index }) => {
+    const blockedByLimit = limitReached && !option.selected && option.value !== "__unanswered__";
+    return `
+    <button class="custom-select-option${option.selected ? " selected" : ""}" type="button" role="option" aria-selected="${option.selected}" data-option-index="${index}" ${option.disabled || blockedByLimit ? "disabled" : ""}>
       ${customSelectOptionMarkup(select, option)}<span class="custom-option-check">✓</span>
-    </button>`).join("");
+    </button>`; }).join("")}${isMulti ? `<div class="multi-select-footer"><span>${selectedParticipants.length ? `${formatPoints(previewAwards[0]?.points)} pts ${selectedParticipants.length > 1 ? "por persona" : "para el ganador"}` : "El puntaje se reparte automáticamente"}</span><button class="custom-select-done" type="button">Listo</button></div>` : ""}`;
   menu.querySelectorAll(".custom-select-option").forEach(button => button.addEventListener("click", event => {
     event.stopPropagation();
     const option = select.options[Number(button.dataset.optionIndex)];
     if (!option || option.disabled) return;
+    if (isMulti) {
+      if (option.value === "__unanswered__") {
+        const nextValue = !option.selected;
+        [...select.options].forEach(item => { item.selected = false; });
+        option.selected = nextValue;
+      } else {
+        if (!option.selected && selectedParticipants.length >= maxWinners()) return showToast(`Podés elegir hasta ${maxWinners()} ganadores`);
+        option.selected = !option.selected;
+        [...select.options].filter(item => item.value === "__unanswered__" || !item.value).forEach(item => { item.selected = false; });
+      }
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      syncCustomSelect(select);
+      return;
+    }
     select.value = option.value;
     select.dispatchEvent(new Event("change", { bubbles: true }));
     syncCustomSelect(select);
     closeCustomSelect(root);
     trigger.focus();
   }));
+  menu.querySelector(".custom-select-done")?.addEventListener("click", event => { event.stopPropagation(); closeCustomSelect(root); trigger.focus(); });
 }
 
 function syncCustomSelects() {
@@ -133,16 +187,24 @@ function initCustomSelects() {
 
 function normalizeState(raw) {
   if (!raw || !Array.isArray(raw.games)) return defaultState();
-  let games = raw.games.map(game => ({
-    ...game,
-    status: game.status || (game.winner ? "completed" : "published"),
-    answer: typeof game.answer === "string" ? game.answer.trim() : "",
-    unanswered: Boolean(game.unanswered),
-    category: typeof game.category === "string" ? game.category.trim() : "",
-    bonusPercent: Math.max(0, Math.min(200, Number(game.bonusPercent) || 0)),
-    clues: Array.isArray(game.clues) ? game.clues.map(clue => typeof clue === "string" ? { text: clue, revealed: false } : { text: clue.text || "", revealed: Boolean(clue.revealed) }) : [],
-    winner: PARTICIPANTS.includes(game.winner) ? game.winner : null
-  }));
+  let games = raw.games.map(game => {
+    const winners = [...new Set((Array.isArray(game.winners) ? game.winners : game.winner ? [game.winner] : []).filter(name => PARTICIPANTS.includes(name)))];
+    const totalPoints = Number(game.pointsAwarded) || 0;
+    const storedAwards = new Map((Array.isArray(game.winnerAwards) ? game.winnerAwards : []).filter(award => winners.includes(award?.name) && Number.isFinite(Number(award?.points))).map(award => [award.name, Number(award.points)]));
+    const winnerAwards = storedAwards.size === winners.length ? winners.map(name => ({ name, points: storedAwards.get(name) })) : splitAward(totalPoints, winners);
+    return {
+      ...game,
+      status: game.status || (winners.length || game.unanswered ? "completed" : "published"),
+      answer: typeof game.answer === "string" ? game.answer.trim() : "",
+      unanswered: Boolean(game.unanswered),
+      category: typeof game.category === "string" ? game.category.trim() : "",
+      bonusPercent: Math.max(0, Math.min(200, Number(game.bonusPercent) || 0)),
+      clues: Array.isArray(game.clues) ? game.clues.map(clue => typeof clue === "string" ? { text: clue, revealed: false } : { text: clue.text || "", revealed: Boolean(clue.revealed) }) : [],
+      winner: winners[0] || null,
+      winners,
+      winnerAwards
+    };
+  });
   const hasCategoryCatalog = Array.isArray(raw.categories);
   const categories = hasCategoryCatalog ? raw.categories.filter(category => category?.name).map((category, index) => ({
     id: String(category.id || `category-${index}`),
@@ -155,12 +217,13 @@ function normalizeState(raw) {
   });
   games = games.map(game => ({ ...game, categoryId: game.categoryId || categories.find(category => category.name.toLowerCase() === game.category?.toLowerCase())?.id || "" }));
   return {
-    version: 3,
+    version: 4,
     datasetRevision: Math.max(DATASET_REVISION, Number(raw.datasetRevision) || 0),
     activeGameId: raw.activeGameId || null,
     updatedAt: raw.updatedAt || null,
     games,
-    categories
+    categories,
+    settings: { maxWinners: Math.max(1, Math.min(PARTICIPANTS.length, Number(raw.settings?.maxWinners) || 2)) }
   };
 }
 
@@ -276,9 +339,11 @@ function maxPoints(game) {
 
 function scoresByParticipant() {
   const scores = Object.fromEntries(PARTICIPANTS.map(name => [name, { name, points: 0, wins: 0 }]));
-  state.games.filter(game => game.winner).forEach(game => {
-    scores[game.winner].points += Number(game.pointsAwarded) || 0;
-    scores[game.winner].wins += 1;
+  state.games.filter(game => game.status === "completed").forEach(game => {
+    gameAwards(game).forEach(award => {
+      scores[award.name].points += award.points;
+      scores[award.name].wins += 1;
+    });
   });
   return Object.values(scores).sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));
 }
@@ -297,6 +362,8 @@ function renderGame() {
   const points = calculatePoints(game);
   const revealed = game?.clues.filter(clue => clue.revealed) || [];
   const completed = game?.status === "completed";
+  const winners = gameWinners(game);
+  const awards = gameAwards(game);
   const availablePoints = game ? (completed ? game.pointsAwarded : points) : "?";
   $("#currentPoints").textContent = availablePoints;
   $("#heroPoints").textContent = availablePoints;
@@ -315,7 +382,8 @@ function renderGame() {
   $("#clueEmpty small").textContent = game ? "Juana las comparte en voz alta para que sea justo." : "Cada pista usada reduce el premio.";
   const status = $("#answerStatus");
   status.classList.toggle("completed", completed);
-  status.innerHTML = completed ? (game.unanswered ? `<span></span> Nadie encontró la respuesta · 0 puntos` : `<span></span> Respondió ${escapeHtml(game.winner)} · ${game.pointsAwarded} puntos`) : `<span></span> ${game ? "El equipo está adivinando" : "Esperando la pregunta"}`;
+  const sharedPoints = awards.length ? awards.every(award => award.points === awards[0].points) ? `${formatPoints(awards[0].points)} puntos ${awards.length > 1 ? "cada uno" : ""}` : `${formatPoints(game?.pointsAwarded)} puntos repartidos` : "0 puntos";
+  status.innerHTML = completed ? (game.unanswered ? `<span></span> Nadie encontró la respuesta · 0 puntos` : `<span></span> ${winners.length > 1 ? "Respondieron" : "Respondió"} ${escapeHtml(formatNames(winners))} · ${sharedPoints}`) : `<span></span> ${game ? "El equipo está adivinando" : "Esperando la pregunta"}`;
   $("#answerReveal").hidden = !completed || !game?.answer;
   $("#answerRevealText").textContent = completed ? game?.answer || "" : "";
 }
@@ -346,14 +414,14 @@ function renderRaceBoard() {
   const trophy = `<svg viewBox="0 0 72 58" aria-hidden="true"><path class="trophy-cup" d="M24 6h24v10c0 11-5 18-12 21-7-3-12-10-12-21V6Z"/><path class="trophy-handle" d="M24 11h-9v6c0 7 4 12 11 13M48 11h9v6c0 7-4 12-11 13"/><path class="trophy-stem" d="M36 37v9m-10 6h20M30 46h12"/></svg>`;
   const reachTrophy = `<svg class="reach-trophy" viewBox="0 0 94 60" aria-hidden="true"><path class="reach-hand" d="M2 54c5-10 10-17 17-20 4-2 8 0 9 4l4 14-9 3-4-10-7 12Z"/><path class="reach-hand" d="M92 54c-5-10-10-17-17-20-4-2-8 0-9 4l-4 14 9 3 4-10 7 12Z"/><path class="reach-cup" d="M35 4h24v10c0 11-5 18-12 21-7-3-12-10-12-21V4Z"/><path class="reach-cup-line" d="M35 9h-9v6c0 7 4 12 11 13M59 9h9v6c0 7-4 12-11 13M47 35v10m-10 7h20M40 45h14"/></svg>`;
   const leaderMarkup = leader?.points
-    ? `<div class="board-leader">${avatarMarkup(leader.name)}<span><small>MÁS CERCA DE LA COPA</small><b>${escapeHtml(leader.name)} · ${leader.points} pts</b></span>${reachTrophy}</div>`
+    ? `<div class="board-leader">${avatarMarkup(leader.name)}<span><small>MÁS CERCA DE LA COPA</small><b>${escapeHtml(leader.name)} · ${formatPoints(leader.points)} pts</b></span>${reachTrophy}</div>`
     : `<div class="board-leader board-leader-empty"><span>🏁</span><b>Todos listos en la largada</b></div>`;
   const center = `<div class="board-center"><span class="board-center-logo"><svg viewBox="0 0 120 72" aria-hidden="true"><path d="M13 51a23 23 0 0 1 46 0H13Z"/><path d="M61 23h46a23 23 0 0 1-46 0Z"/><path d="M61 26h-8v5c0 8 5 14 13 16l2-5c-5-1-8-5-8-11h1v-5Zm46 0h8v5c0 8-5 14-13 16l-2-5c5-1 8-5 8-11h-1v-5ZM81 44h6v11h10v6H71v-6h10V44Z"/></svg></span><span class="kicker">CAMPEONATO</span><h3>Carrera<br />de mente</h3><p>Cada vuelta tiene 100 puntos. La copa sigue en juego y la mente que más suma es la que más cerca está de alcanzarla.</p>${leaderMarkup}</div>`;
   const tones = ["deep", "purple", "violet", "lavender", "purple", "lime", "purple", "violet", "lavender", "purple", "violet", "coral", "deep", "purple", "violet", "lavender", "purple", "lime", "purple", "violet", "lavender", "purple", "violet", "purple"];
   const trackCells = coordinates.map(([x, y, rotation], index) => {
     const tokens = cells[index].map(person => {
       const isLeader = Boolean(leader?.points && person.name === leader.name);
-      return `<span class="board-token avatar-${avatarSlug(person.name)}${isLeader ? " board-token-leader" : ""}" title="${escapeHtml(person.name)} · ${person.points} puntos"><img src="${PARTICIPANT_PHOTOS[person.name]}" alt="${escapeHtml(person.name)}" loading="lazy" />${isLeader ? `<i class="leader-mini-cup">${trophy}</i>` : ""}${person.lap > 1 ? `<i class="lap-badge">V${person.lap}</i>` : ""}</span>`;
+      return `<span class="board-token avatar-${avatarSlug(person.name)}${isLeader ? " board-token-leader" : ""}" title="${escapeHtml(person.name)} · ${formatPoints(person.points)} puntos"><img src="${PARTICIPANT_PHOTOS[person.name]}" alt="${escapeHtml(person.name)}" loading="lazy" />${isLeader ? `<i class="leader-mini-cup">${trophy}</i>` : ""}${person.lap > 1 ? `<i class="lap-badge">V${person.lap}</i>` : ""}</span>`;
     }).join("");
     const value = Math.round(index / 23 * 100);
     return `<div class="board-cell track-${tones[index]} ${index === 0 ? "start-cell" : ""} ${index === 23 ? "finish-cell" : ""} ${cells[index].length > 4 ? "crowded" : ""}" style="--x:${x};--y:${y};--r:${rotation}deg">${index === 0 ? `<span class="cell-flag">SALIDA</span>` : index === 23 ? `<span class="cell-flag">META</span><i class="board-goal">${trophy}</i>` : ""}<div class="token-stack">${tokens}</div><span class="cell-points">${value}</span></div>`;
@@ -367,20 +435,24 @@ function renderLeaderboard() {
       <span class="rank-position">${index === 0 ? "♛" : String(index + 1).padStart(2, "0")}</span>
       <div class="rank-person">${avatarMarkup(person.name)}<span>${escapeHtml(person.name)}</span></div>
       <div class="rank-meta"><small>VICTORIAS</small><b>${person.wins}</b></div>
-      <div class="rank-points">${person.points} <small>PTS</small></div>
+      <div class="rank-points">${formatPoints(person.points)} <small>PTS</small></div>
     </div>`).join("");
 }
 
 function renderHistory() {
   const completed = state.games.filter(game => game.status === "completed").sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
-  $("#historyGrid").innerHTML = completed.map(game => `
+  $("#historyGrid").innerHTML = completed.map(game => {
+    const winners = gameWinners(game);
+    const awards = gameAwards(game);
+    const awardLabel = awards.length > 1 && awards.every(award => award.points === awards[0].points) ? `+${formatPoints(awards[0].points)} c/u` : `+${formatPoints(game.pointsAwarded)} pts`;
+    return `
     <article class="history-card">
       <div class="history-date"><span>${formatDate(game.date, false).toUpperCase()}</span><span>${game.clues.filter(c => c.revealed).length} PISTAS</span></div>
       <span class="history-category">${escapeHtml(game.category || "Categoría libre")}${categoryBonus(game) ? ` · +${categoryBonus(game)}%` : ""}</span>
       <h3>${escapeHtml(game.question)}</h3>
       ${game.answer ? `<p class="history-answer"><b>Respuesta:</b> ${escapeHtml(game.answer)}</p>` : ""}
-      <div class="history-winner">${game.unanswered ? `<span class="avatar">?</span><span>Nadie respondió</span><b>0 pts</b>` : `${avatarMarkup(game.winner)}<span>${escapeHtml(game.winner)}</span><b>+${game.pointsAwarded} pts</b>`}</div>
-    </article>`).join("");
+      <div class="history-winner">${game.unanswered ? `<span class="avatar">?</span><span>Nadie respondió</span><b>0 pts</b>` : `<span class="history-winner-avatars">${winners.map(avatarMarkup).join("")}</span><span>${escapeHtml(formatNames(winners))}</span><b>${awardLabel}</b>`}</div>
+    </article>`; }).join("");
   $("#emptyHistory").style.display = completed.length ? "none" : "block";
 }
 
@@ -412,11 +484,14 @@ function renderAdmin() {
   $("#saveQuestion").textContent = locked ? "Pregunta ya publicada" : previousCompleted ? "Guardar nueva pregunta y continuar" : "Guardar pregunta y continuar";
   $("#adminPoints").textContent = calculatePoints(game);
   $("#adminBonusSummary").textContent = categoryBonus(game) ? `+${categoryBonus(game)}% ${game?.category || "extra"}` : "Sin extra";
-  $("#winnerSelect").innerHTML = `<option value="">Seleccionar resultado</option><option value="__unanswered__" ${game?.unanswered ? "selected" : ""}>Nadie respondió · 0 puntos</option>${PARTICIPANTS.map(name => `<option value="${escapeHtml(name)}" ${game?.winner === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
+  const winners = gameWinners(game);
+  $("#maxWinnersValue").textContent = maxWinners();
+  $("#decreaseWinnerLimit").disabled = maxWinners() <= 1;
+  $("#increaseWinnerLimit").disabled = maxWinners() >= PARTICIPANTS.length;
+  $("#winnerSelect").innerHTML = `<option value="" disabled>Seleccionar participantes</option><option value="__unanswered__" ${game?.unanswered ? "selected" : ""}>Nadie respondió · 0 puntos</option>${PARTICIPANTS.map(name => `<option value="${escapeHtml(name)}" ${winners.includes(name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
   $("#winnerSelect").disabled = game?.status !== "published";
   $("#awardWinner").disabled = game?.status !== "published";
-  $("#awardWinner").textContent = game?.status === "completed" ? (game.unanswered ? "Cerrada sin respuesta" : `Resultado cargado: ${game.winner}`) : "Confirmar resultado";
-  $("#winnerSummary").textContent = game ? `${game.clues.filter(c => c.revealed).length} de ${game.clues.length} pistas usadas${categoryBonus(game) ? ` · bonus de categoría +${categoryBonus(game)}% incluido` : ""}.` : "Primero prepará y publicá una pregunta.";
+  $("#awardWinner").textContent = game?.status === "completed" ? (game.unanswered ? "Cerrada sin respuesta" : `Resultado cargado: ${formatNames(winners)}`) : "Confirmar resultado y repartir puntos";
   $("#addClue").disabled = !editableGame || locked;
   $("#saveClues").disabled = !editableGame || locked;
   $("#publishGame").disabled = editableGame?.status !== "ready" || !editableGame.clues.length;
@@ -425,6 +500,7 @@ function renderAdmin() {
   renderCategoryLibrary();
   updateCategoryHelp();
   syncCustomSelects();
+  updateWinnerSummary();
 
   const allowed = {
     question: true,
@@ -489,6 +565,24 @@ function renderLivePanel(game) {
 
 function renderCategoryOptions() {
   $("#adminCategory").innerHTML = `<option value="">Elegí una categoría</option>${state.categories.map(category => `<option value="${escapeHtml(category.id)}">${escapeHtml(category.name)} · +${category.bonusPercent}%</option>`).join("")}`;
+}
+
+function selectedWinnerValues() {
+  return [...$("#winnerSelect").selectedOptions].map(option => option.value).filter(Boolean);
+}
+
+function updateWinnerSummary() {
+  const game = activeGame();
+  const selected = selectedWinnerValues();
+  if (!game) { $("#winnerSummary").textContent = "Primero prepará y publicá una pregunta."; return; }
+  if (selected.includes("__unanswered__")) { $("#winnerSummary").textContent = "La pregunta se cerrará sin repartir puntos."; return; }
+  const awards = splitAward(calculatePoints(game), selected);
+  if (selected.length) {
+    const distribution = awards.every(award => award.points === awards[0].points) ? `${formatPoints(awards[0].points)} puntos para cada uno` : `${awards.map(award => `${award.name}: ${formatPoints(award.points)}`).join(" · ")}`;
+    $("#winnerSummary").textContent = `${formatPoints(calculatePoints(game))} puntos en juego ÷ ${selected.length}: ${distribution}.`;
+    return;
+  }
+  $("#winnerSummary").textContent = `${game.clues.filter(c => c.revealed).length} de ${game.clues.length} pistas usadas${categoryBonus(game) ? ` · bonus de categoría +${categoryBonus(game)}% incluido` : ""}. Podés elegir hasta ${maxWinners()} ganadores.`;
 }
 
 function updateCategoryHelp() {
@@ -577,7 +671,7 @@ const TOUR_STEPS = [
   { tab: "question", target: "#saveQuestion", title: "2. Guardá pregunta y respuesta", text: "Escribí ambas y guardá el borrador. La respuesta permanece privada durante el juego y recién aparece en el historial cuando cierres la partida." },
   { tab: "clues", target: ".publish-box", title: "3. Ordená y publicá", text: "Cargá las pistas de la más difícil a la más fácil. Cuando esté todo listo, este botón publica únicamente la pregunta." },
   { tab: "live", target: "#nextClueCard", title: "4. Leé las pistas en la daily", text: "Mostrá la siguiente pista sólo en tu panel y leela en voz alta. Los participantes verán el contador, nunca el texto, para que nadie tenga ventaja." },
-  { tab: "winner", target: "#awardWinner", title: "5. Cerrá con el ganador", text: "Elegí quién acertó. Calculamos pistas y bonus de categoría, y actualizamos automáticamente el ranking de todo el equipo." },
+  { tab: "winner", target: "#awardWinner", title: "5. Cerrá con el resultado", text: "Elegí una o más personas —hasta el máximo configurado—. Si comparten la respuesta, los puntos se dividen automáticamente y el ranking se actualiza para todos." },
   { tab: "data", target: ".password-prank-card", title: "Último detalle: cambiá tu contraseña", text: "José y Seba ya conocen la clave inicial. Antes de estrenar la trivia, cambiala desde acá para que nadie se haga el vivo tocando preguntas o puntos." }
 ];
 
@@ -659,7 +753,7 @@ $("#saveQuestion").addEventListener("click", async () => {
   if (!selectedCategory) return showToast("Elegí una categoría de la biblioteca");
   let game = activeGame();
   if (!game || game.status === "completed") {
-    game = { id: `${date}-${Date.now()}`, date, question, answer, caption: $("#adminCaption").value.trim(), categoryId, category: selectedCategory.name, bonusPercent: selectedCategory.bonusPercent, clues: [], status: "draft", winner: null, unanswered: false, pointsAwarded: null, completedAt: null };
+    game = { id: `${date}-${Date.now()}`, date, question, answer, caption: $("#adminCaption").value.trim(), categoryId, category: selectedCategory.name, bonusPercent: selectedCategory.bonusPercent, clues: [], status: "draft", winner: null, winners: [], winnerAwards: [], pointsPerWinner: null, unanswered: false, pointsAwarded: null, completedAt: null };
     state.games.push(game); state.activeGameId = game.id;
   } else if (game.status === "draft" || game.status === "ready") {
     game.date = date; game.question = question; game.answer = answer; game.caption = $("#adminCaption").value.trim(); game.categoryId = categoryId; game.category = selectedCategory.name; game.bonusPercent = selectedCategory.bonusPercent;
@@ -676,6 +770,7 @@ $("#addClue").addEventListener("click", () => {
 });
 
 $("#adminCategory").addEventListener("change", updateCategoryHelp);
+$("#winnerSelect").addEventListener("change", updateWinnerSummary);
 $("#openCategories").addEventListener("click", () => setAdminTab("categories"));
 $("#newCategoryBonus").addEventListener("input", updateNewCategoryHelp);
 $("#saveCategory").addEventListener("click", async () => {
@@ -728,15 +823,42 @@ $("#revealNextClue").addEventListener("click", async () => {
 });
 
 $("#goToWinner").addEventListener("click", () => setAdminTab("winner"));
+
+async function changeWinnerLimit(delta) {
+  const selectedBefore = selectedWinnerValues();
+  const next = Math.max(1, Math.min(PARTICIPANTS.length, maxWinners() + delta));
+  if (next === maxWinners()) return;
+  state.settings = { ...(state.settings || {}), maxWinners: next };
+  await persist(`Máximo actualizado a ${next} ${next === 1 ? "ganador" : "ganadores"}`);
+  setAdminTab("winner");
+  const keep = selectedBefore.includes("__unanswered__") ? ["__unanswered__"] : selectedBefore.slice(0, next);
+  [...$("#winnerSelect").options].forEach(option => { option.selected = keep.includes(option.value); });
+  syncCustomSelect($("#winnerSelect"));
+  updateWinnerSummary();
+}
+
+$("#decreaseWinnerLimit").addEventListener("click", () => changeWinnerLimit(-1));
+$("#increaseWinnerLimit").addEventListener("click", () => changeWinnerLimit(1));
+
 $("#awardWinner").addEventListener("click", async () => {
-  const game = activeGame(); const winner = $("#winnerSelect").value;
+  const game = activeGame();
+  const selected = selectedWinnerValues();
   if (game?.status !== "published") return showToast("La trivia todavía no está en juego");
-  if (winner !== "__unanswered__" && !PARTICIPANTS.includes(winner)) return showToast("Seleccioná un ganador o marcá que nadie respondió");
-  game.unanswered = winner === "__unanswered__";
-  game.winner = game.unanswered ? null : winner;
+  if (!selected.length) return showToast("Seleccioná al menos un ganador o marcá que nadie respondió");
+  const unanswered = selected.includes("__unanswered__");
+  const winners = selected.filter(name => PARTICIPANTS.includes(name));
+  if (unanswered && selected.length > 1) return showToast("Nadie respondió no puede combinarse con participantes");
+  if (!unanswered && (!winners.length || winners.length > maxWinners())) return showToast(`Elegí entre 1 y ${maxWinners()} ganadores`);
+  game.unanswered = unanswered;
+  game.winners = unanswered ? [] : winners;
+  game.winner = unanswered ? null : winners[0];
   game.pointsAwarded = game.unanswered ? 0 : calculatePoints(game);
+  game.winnerAwards = game.unanswered ? [] : splitAward(game.pointsAwarded, winners);
+  game.pointsPerWinner = game.winnerAwards.length && game.winnerAwards.every(award => award.points === game.winnerAwards[0].points) ? game.winnerAwards[0].points : null;
   game.completedAt = new Date().toISOString(); game.status = "completed";
-  await persist(game.unanswered ? "Pregunta cerrada sin respuesta" : `${winner} sumó ${game.pointsAwarded} puntos`);
+  const equalShare = game.winnerAwards.length && game.winnerAwards.every(award => award.points === game.winnerAwards[0].points);
+  const resultMessage = winners.length > 1 ? (equalShare ? `${formatNames(winners)} sumaron ${formatPoints(game.winnerAwards[0].points)} puntos cada uno` : `${formatPoints(game.pointsAwarded)} puntos repartidos entre ${formatNames(winners)}`) : `${winners[0]} sumó ${formatPoints(game.pointsAwarded)} puntos`;
+  await persist(game.unanswered ? "Pregunta cerrada sin respuesta" : resultMessage);
   if (!game.unanswered) launchConfetti();
   closeAdmin();
 });
@@ -744,8 +866,8 @@ $("#awardWinner").addEventListener("click", async () => {
 $("#undoLast").addEventListener("click", async () => {
   const last = state.games.filter(game => game.status === "completed").sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""))[0];
   if (!last) return showToast("No hay resultados para deshacer");
-  if (!confirm(`¿Quitar el resultado de ${last.unanswered ? "la pregunta sin responder" : last.winner}?`)) return;
-  last.winner = null; last.unanswered = false; last.pointsAwarded = null; last.completedAt = null; last.status = "published"; state.activeGameId = last.id;
+  if (!confirm(`¿Quitar el resultado de ${last.unanswered ? "la pregunta sin responder" : formatNames(gameWinners(last))}?`)) return;
+  last.winner = null; last.winners = []; last.winnerAwards = []; last.pointsPerWinner = null; last.unanswered = false; last.pointsAwarded = null; last.completedAt = null; last.status = "published"; state.activeGameId = last.id;
   await persist("Último resultado deshecho");
 });
 $("#changePasswordButton").addEventListener("click", () => {
@@ -778,8 +900,12 @@ function download(filename, content, type) {
   const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([content], { type })); link.download = filename; link.click(); URL.revokeObjectURL(link.href);
 }
 $("#exportCsv").addEventListener("click", () => {
-  const rows = [["Fecha", "Día", "Jugador", "Puntos", "Categoría", "Extra categoría", "Pregunta", "Respuesta", "Pistas usadas"]];
-  state.games.filter(game => game.status === "completed").forEach(game => rows.push([game.date, formatDate(game.date).split(",")[0], game.unanswered ? "Sin respuesta" : game.winner, game.pointsAwarded || 0, game.category || "", `${categoryBonus(game)}%`, game.question, game.answer || "", game.clues.filter(c => c.revealed).length]));
+  const rows = [["Fecha", "Día", "Jugador", "Puntos recibidos", "Puntos totales", "Ganadores", "Categoría", "Extra categoría", "Pregunta", "Respuesta", "Pistas usadas"]];
+  state.games.filter(game => game.status === "completed").forEach(game => {
+    const awards = gameAwards(game);
+    if (game.unanswered || !awards.length) rows.push([game.date, formatDate(game.date).split(",")[0], "Sin respuesta", 0, 0, 0, game.category || "", `${categoryBonus(game)}%`, game.question, game.answer || "", game.clues.filter(c => c.revealed).length]);
+    else awards.forEach(award => rows.push([game.date, formatDate(game.date).split(",")[0], award.name, award.points, game.pointsAwarded || 0, awards.length, game.category || "", `${categoryBonus(game)}%`, game.question, game.answer || "", game.clues.filter(c => c.revealed).length]));
+  });
   const csv = "\uFEFF" + rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\r\n");
   download(`puntajes-trivia-${today()}.csv`, csv, "text/csv;charset=utf-8"); showToast("CSV descargado");
 });
