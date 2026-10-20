@@ -21,7 +21,7 @@ const LOCAL_PASSWORD_KEY = "intuit-trivia-local-password";
 const API_URL = "/api/state";
 const AUTH_URL = "/api/auth";
 const REFRESH_INTERVAL = 4000;
-const APP_VERSION = globalThis.APP_VERSION || "2.3.dev";
+const APP_VERSION = globalThis.APP_VERSION || "2.4.dev";
 
 const defaultState = createInitialState;
 let state = defaultState();
@@ -353,6 +353,7 @@ function render() {
   renderRaceBoard();
   renderLeaderboard();
   renderHistory();
+  renderCategoryQuestions();
   renderAdmin();
   renderStorageStatus();
 }
@@ -454,6 +455,38 @@ function renderHistory() {
       <div class="history-winner">${game.unanswered ? `<span class="avatar">?</span><span>Nadie respondió</span><b>0 pts</b>` : `<span class="history-winner-avatars">${winners.map(avatarMarkup).join("")}</span><span>${escapeHtml(formatNames(winners))}</span><b>${awardLabel}</b>`}</div>
     </article>`; }).join("");
   $("#emptyHistory").style.display = completed.length ? "none" : "block";
+}
+
+function categoryEmoji(name) {
+  const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const themes = [
+    [/futbol|deport|mundial/, "⚽"], [/musica|cancion|rock/, "🎵"],
+    [/historia/, "🏛️"], [/geografia|viaje|mundo|pais/, "🌍"],
+    [/ciencia|quimica|fisica/, "🔬"], [/tecnolog|informat|program|comput/, "💻"],
+    [/cine|serie|pelicula|television/, "🎬"], [/arte|pintura/, "🎨"],
+    [/literatura|libro|lectura/, "📚"], [/comida|gastronom|cocina/, "🍽️"],
+    [/naturaleza|animal|biologia/, "🌿"], [/matemat|numero|logica/, "🧮"],
+    [/juego|gaming|videojuego/, "🎮"], [/cambalache|general|variedad|libre/, "🎲"]
+  ];
+  return themes.find(([pattern]) => pattern.test(normalized))?.[1] || "🧠";
+}
+
+function renderCategoryQuestions() {
+  const container = $("#categoryQuestionsList");
+  const expanded = new Set([...container.querySelectorAll("details[open]")].map(item => item.dataset.categoryKey));
+  const groups = new Map();
+  state.games.filter(game => ["published", "completed"].includes(game.status)).forEach(game => {
+    const name = game.category || "Categoría libre";
+    const key = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    if (!groups.has(key)) groups.set(key, { key, name, games: [] });
+    groups.get(key).games.push(game);
+  });
+  container.innerHTML = [...groups.values()].sort((a, b) => b.games.length - a.games.length || a.name.localeCompare(b.name, "es")).map(group => `
+    <details class="question-category-group" data-category-key="${escapeHtml(group.key)}" ${expanded.has(group.key) ? "open" : ""}>
+      <summary><span class="category-emoji" aria-hidden="true">${categoryEmoji(group.name)}</span><span class="category-group-name">${escapeHtml(group.name)}<small>Ver las preguntas de esta categoría</small></span><span class="category-question-count">${group.games.length}<small>${group.games.length === 1 ? "pregunta" : "preguntas"}</small></span><span class="category-group-chevron" aria-hidden="true">⌄</span></summary>
+      <ol class="category-question-list">${group.games.sort((a, b) => b.date.localeCompare(a.date) || (b.publishedAt || "").localeCompare(a.publishedAt || "")).map(game => `
+        <li><div class="category-question-meta"><time datetime="${escapeHtml(game.date)}">${escapeHtml(formatDate(game.date, false))}</time><span>${game.status === "published" ? "En juego" : game.unanswered ? "Sin respuesta" : "Finalizada"}</span></div><h4>${escapeHtml(game.question)}</h4>${game.status === "completed" && game.answer ? `<p><b>Respuesta:</b> ${escapeHtml(game.answer)}</p>` : ""}</li>`).join("")}</ol>
+    </details>`).join("") || `<div class="category-questions-empty"><span aria-hidden="true">🗂️</span><p>Todavía no hay preguntas publicadas.</p><small>Cuando Juana publique la primera, aparecerá acá con su categoría.</small></div>`;
 }
 
 function flowStep(game) {
