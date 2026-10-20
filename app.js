@@ -471,6 +471,16 @@ function categoryEmoji(name) {
   return themes.find(([pattern]) => pattern.test(normalized))?.[1] || "🧠";
 }
 
+function categoryQuestionResultMarkup(game) {
+  if (game.status !== "completed") return "";
+  const awards = gameAwards(game);
+  const cluesUsed = (game.clues || []).filter(clue => clue.revealed).length;
+  return `<div class="category-question-result"><div class="category-result-heading"><span>${game.unanswered ? "Sin ganador" : awards.length > 1 ? "Ganadores" : "Ganador"}</span><small>${cluesUsed} ${cluesUsed === 1 ? "pista usada" : "pistas usadas"}</small></div>${game.unanswered
+    ? `<div class="category-result-person"><span class="avatar" aria-hidden="true">—</span><span>Nadie respondió</span><b>0 pts</b></div>`
+    : awards.length ? awards.map(award => `<div class="category-result-person">${avatarMarkup(award.name)}<span>${escapeHtml(award.name)}</span><b>+${formatPoints(award.points)} pts</b></div>`).join("")
+    : `<p>Resultado sin ganador registrado.</p>`}${!game.unanswered && awards.length > 1 ? `<small class="category-result-total">${formatPoints(game.pointsAwarded)} puntos repartidos entre ${awards.length} participantes</small>` : ""}</div>`;
+}
+
 function renderCategoryQuestions() {
   const container = $("#categoryQuestionsList");
   const expanded = new Set([...container.querySelectorAll("details[open]")].map(item => item.dataset.categoryKey));
@@ -485,7 +495,7 @@ function renderCategoryQuestions() {
     <details class="question-category-group" data-category-key="${escapeHtml(group.key)}" ${expanded.has(group.key) ? "open" : ""}>
       <summary><span class="category-emoji" aria-hidden="true">${categoryEmoji(group.name)}</span><span class="category-group-name">${escapeHtml(group.name)}<small>Ver las preguntas de esta categoría</small></span><span class="category-question-count">${group.games.length}<small>${group.games.length === 1 ? "pregunta" : "preguntas"}</small></span><span class="category-group-chevron" aria-hidden="true">⌄</span></summary>
       <ol class="category-question-list">${group.games.sort((a, b) => b.date.localeCompare(a.date) || (b.publishedAt || "").localeCompare(a.publishedAt || "")).map(game => `
-        <li><div class="category-question-meta"><time datetime="${escapeHtml(game.date)}">${escapeHtml(formatDate(game.date, false))}</time><span>${game.status === "published" ? "En juego" : game.unanswered ? "Sin respuesta" : "Finalizada"}</span></div><h4>${escapeHtml(game.question)}</h4>${game.status === "completed" && game.answer ? `<p><b>Respuesta:</b> ${escapeHtml(game.answer)}</p>` : ""}</li>`).join("")}</ol>
+        <li><div class="category-question-meta"><time datetime="${escapeHtml(game.date)}">${escapeHtml(formatDate(game.date, false))}</time><span>${game.status === "published" ? "En juego" : game.unanswered ? "Sin respuesta" : "Finalizada"}</span></div><h4>${escapeHtml(game.question)}</h4>${game.status === "completed" && game.answer ? `<p><b>Respuesta:</b> ${escapeHtml(game.answer)}</p>` : ""}${categoryQuestionResultMarkup(game)}</li>`).join("")}</ol>
     </details>`).join("") || `<div class="category-questions-empty"><span aria-hidden="true">🗂️</span><p>Todavía no hay preguntas publicadas.</p><small>Cuando Juana publique la primera, aparecerá acá con su categoría.</small></div>`;
 }
 
